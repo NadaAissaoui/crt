@@ -283,10 +283,13 @@ def load_kb(file) -> pd.DataFrame:
 
 def build_index(df, bi_model):
     from sklearn.feature_extraction.text import TfidfVectorizer
-    corpus = df.apply(
-        lambda r: f"{r.get(\"Contexte d'usage\",'')} {r.get('Fonctionnalit\u00e9','')} {r.get('Etat','')} {r.get('Commentaire','')}",
-        axis=1
-    ).tolist()
+    def make_text(r):
+        ctx  = r.get("Contexte d'usage", "")
+        fonc = r.get("Fonctionnalit\u00e9", "")
+        etat = r.get("Etat", "")
+        comm = r.get("Commentaire", "")
+        return f"{ctx} {fonc} {etat} {comm}"
+    corpus = df.apply(make_text, axis=1).tolist()
     vectorizer = TfidfVectorizer(ngram_range=(1, 2), min_df=1, sublinear_tf=True)
     tfidf_mat  = vectorizer.fit_transform(corpus)
     embeddings = bi_model.encode(corpus, convert_to_numpy=True,
