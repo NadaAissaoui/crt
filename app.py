@@ -10,9 +10,7 @@ import io
 import warnings
 warnings.filterwarnings("ignore")
 
-# ─────────────────────────────────────────────────────────────
-#  PAGE CONFIG
-# ─────────────────────────────────────────────────────────────
+
 st.set_page_config(
     page_title="OGiRYS Matching",
     page_icon="🧠",
