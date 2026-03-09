@@ -512,7 +512,12 @@ with tab2:
             view = view[view["Etat"] == etat_filter]
 
         if "Score_CE" in view.columns:
+            view["Score_CE"] = pd.to_numeric(view["Score_CE"], errors="coerce")
             view = view[view["Score_CE"].fillna(0) >= score_min]
+
+        for num_col in ["Score_CE", "Score_Hybride"]:
+            if num_col in view.columns:
+                view[num_col] = pd.to_numeric(view[num_col], errors="coerce")
 
         sort_map = {
             "Score_CE desc":      ("Score_CE", False),
