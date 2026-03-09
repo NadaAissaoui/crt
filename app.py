@@ -12,7 +12,7 @@ warnings.filterwarnings("ignore")
 
 
 st.set_page_config(
-    page_title="OGiRYS Matching",
+    page_title="AO Generator - OGIRYS",
     page_icon="🧠",
     layout="wide",
     initial_sidebar_state="collapsed",
@@ -28,7 +28,7 @@ TOP_K     = 5
 ALPHA     = 0.65
 
 # ─────────────────────────────────────────────────────────────
-#  STYLE
+#  STYLE  — palette violet / rose
 # ─────────────────────────────────────────────────────────────
 st.markdown("""
 <style>
@@ -36,7 +36,7 @@ st.markdown("""
 
 html, body, [class*="css"] { font-family: 'IBM Plex Sans', sans-serif; }
 
-.stApp { background: #0d1117; color: #e6edf3; }
+.stApp { background: #0e0a1a; color: #ede8f5; }
 
 /* ── Cacher la sidebar completement ── */
 section[data-testid="stSidebar"]       { display: none !important; }
@@ -44,8 +44,8 @@ button[data-testid="collapsedControl"] { display: none !important; }
 
 /* ── Hero ── */
 .hero-banner {
-    background: linear-gradient(135deg, #0d1117 0%, #1a2332 50%, #0d2137 100%);
-    border: 1px solid #21262d;
+    background: linear-gradient(135deg, #0e0a1a 0%, #1a0e2e 50%, #20082b 100%);
+    border: 1px solid #2d1a4a;
     border-radius: 12px;
     padding: 32px 40px;
     margin-bottom: 28px;
@@ -57,102 +57,118 @@ button[data-testid="collapsedControl"] { display: none !important; }
     position: absolute;
     top: -50%; right: -10%;
     width: 400px; height: 400px;
-    background: radial-gradient(circle, rgba(33,139,255,0.08) 0%, transparent 70%);
+    background: radial-gradient(circle, rgba(180,80,255,0.12) 0%, transparent 70%);
     pointer-events: none;
 }
 .hero-title {
     font-family: 'IBM Plex Mono', monospace;
     font-size: 2.2rem; font-weight: 600;
-    color: #58a6ff; margin: 0; letter-spacing: -1px;
+    color: #c084fc; margin: 0; letter-spacing: -1px;
 }
-.hero-sub  { font-size: 0.95rem; color: #8b949e; margin-top: 6px; font-weight: 300; }
-.hero-tag  {
-    display: inline-block;
-    background: rgba(88,166,255,0.1);
-    border: 1px solid rgba(88,166,255,0.3);
-    color: #58a6ff;
-    font-family: 'IBM Plex Mono', monospace;
-    font-size: 0.72rem;
-    padding: 2px 10px; border-radius: 20px;
-    margin-right: 6px; margin-top: 12px;
-}
+.hero-sub  { font-size: 0.95rem; color: #9d8ab5; margin-top: 6px; font-weight: 300; }
 
 /* ── Stats ── */
 .stats-row { display: flex; gap: 16px; margin-bottom: 24px; }
 .stat-card {
-    flex: 1; background: #161b22;
-    border: 1px solid #21262d; border-radius: 10px;
+    flex: 1; background: #150d28;
+    border: 1px solid #2d1a4a; border-radius: 10px;
     padding: 18px 20px; text-align: center;
     transition: border-color 0.2s;
 }
-.stat-card:hover { border-color: #58a6ff; }
+.stat-card:hover { border-color: #c084fc; }
 .stat-number {
     font-family: 'IBM Plex Mono', monospace;
     font-size: 2rem; font-weight: 600; line-height: 1;
 }
-.stat-label { font-size: 0.75rem; color: #8b949e; margin-top: 4px; text-transform: uppercase; letter-spacing: 0.05em; }
-.stat-total .stat-number { color: #e6edf3; }
-.stat-oui   .stat-number { color: #3fb950; }
-.stat-non   .stat-number { color: #f85149; }
-.stat-score .stat-number { color: #58a6ff; }
+.stat-label { font-size: 0.75rem; color: #9d8ab5; margin-top: 4px; text-transform: uppercase; letter-spacing: 0.05em; }
+.stat-total .stat-number { color: #ede8f5; }
+.stat-oui   .stat-number { color: #c084fc; }
+.stat-non   .stat-number { color: #f472b6; }
+.stat-score .stat-number { color: #e879f9; }
 
 /* ── Buttons ── */
 .stButton > button {
-    background: #238636 !important; color: #ffffff !important;
-    border: 1px solid #2ea043 !important; border-radius: 8px !important;
+    background: linear-gradient(135deg, #7c3aed, #c026d3) !important;
+    color: #ffffff !important;
+    border: 1px solid #a855f7 !important; border-radius: 8px !important;
     font-family: 'IBM Plex Mono', monospace !important;
     font-size: 0.85rem !important; font-weight: 600 !important;
     padding: 10px 24px !important; width: 100% !important;
 }
 .stButton > button:hover {
-    background: #2ea043 !important; border-color: #3fb950 !important;
-    box-shadow: 0 4px 16px rgba(46,160,67,0.3) !important;
+    background: linear-gradient(135deg, #8b5cf6, #d946ef) !important;
+    border-color: #c084fc !important;
+    box-shadow: 0 4px 16px rgba(192,132,252,0.35) !important;
 }
 .stDownloadButton > button {
-    background: #1f6feb !important; color: #ffffff !important;
-    border: 1px solid #388bfd !important; border-radius: 8px !important;
+    background: linear-gradient(135deg, #be185d, #9333ea) !important;
+    color: #ffffff !important;
+    border: 1px solid #ec4899 !important; border-radius: 8px !important;
     font-family: 'IBM Plex Mono', monospace !important;
     font-size: 0.85rem !important; font-weight: 600 !important;
     width: 100% !important;
 }
 .stDownloadButton > button:hover {
-    background: #388bfd !important;
-    box-shadow: 0 4px 16px rgba(31,111,235,0.35) !important;
+    background: linear-gradient(135deg, #db2777, #a855f7) !important;
+    box-shadow: 0 4px 16px rgba(236,72,153,0.35) !important;
 }
 
 /* ── Progress ── */
 .stProgress > div > div {
-    background: linear-gradient(90deg, #1f6feb, #58a6ff) !important;
+    background: linear-gradient(90deg, #7c3aed, #ec4899) !important;
     border-radius: 4px !important;
 }
 
 /* ── Inputs ── */
 .stSelectbox [data-baseweb="select"] > div {
-    background: #161b22 !important; border-color: #30363d !important; color: #e6edf3 !important;
+    background: #150d28 !important; border-color: #2d1a4a !important; color: #ede8f5 !important;
 }
 .stTextInput input {
-    background: #161b22 !important; border-color: #30363d !important;
-    color: #e6edf3 !important; font-family: 'IBM Plex Mono', monospace !important;
+    background: #150d28 !important; border-color: #2d1a4a !important;
+    color: #ede8f5 !important; font-family: 'IBM Plex Mono', monospace !important;
 }
 
 /* ── Section title ── */
 .section-title {
     font-family: 'IBM Plex Mono', monospace;
-    font-size: 0.72rem; color: #58a6ff;
+    font-size: 0.72rem; color: #c084fc;
     text-transform: uppercase; letter-spacing: 0.12em;
-    border-bottom: 1px solid #21262d;
+    border-bottom: 1px solid #2d1a4a;
     padding-bottom: 8px; margin-bottom: 16px;
 }
 
 /* ── Alerts ── */
 .stAlert {
     border-radius: 8px !important;
-    border-left: 3px solid #58a6ff !important;
-    background: #161b22 !important;
+    border-left: 3px solid #c084fc !important;
+    background: #150d28 !important;
 }
 
 /* ── Hide streamlit menu ── */
 #MainMenu, footer { visibility: hidden; }
+
+/* ── Reponse modele ── */
+.model-response {
+    background: #150d28;
+    border: 1px solid #7c3aed;
+    border-left: 4px solid #e879f9;
+    border-radius: 12px;
+    padding: 24px 28px;
+    margin-top: 16px;
+}
+.model-response-title {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.72rem;
+    color: #c084fc;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    margin-bottom: 12px;
+}
+.model-response-text {
+    font-size: 0.95rem;
+    color: #ede8f5;
+    line-height: 1.7;
+}
 </style>
 """, unsafe_allow_html=True)
 
@@ -281,17 +297,11 @@ for key in ["kb_df", "excel_df", "result_df", "embeddings", "vectorizer", "tfidf
 
 
 # ─────────────────────────────────────────────────────────────
-#  HERO BANNER
+#  HERO BANNER  — titre unique
 # ─────────────────────────────────────────────────────────────
 st.markdown("""
 <div class="hero-banner">
-    <div class="hero-title">OGiRYS Matching</div>
-    <div class="hero-sub">Correspondance intelligente de fonctionnalites par IA</div>
-    <div>
-        <span class="hero-tag">Hybrid Search</span>
-        <span class="hero-tag">Cross-Encoder</span>
-        <span class="hero-tag">Multilingue</span>
-    </div>
+    <div class="hero-title">AO Generator - OGIRYS</div>
 </div>
 """, unsafe_allow_html=True)
 
@@ -357,9 +367,9 @@ with tab1:
         try:
             load_models()
             st.markdown("""
-            <div style="background:rgba(63,185,80,0.1);border:1px solid rgba(63,185,80,0.3);
+            <div style="background:rgba(192,132,252,0.1);border:1px solid rgba(192,132,252,0.3);
             border-radius:8px;padding:12px;text-align:center;
-            font-family:'IBM Plex Mono',monospace;font-size:0.78rem;color:#3fb950;">
+            font-family:'IBM Plex Mono',monospace;font-size:0.78rem;color:#c084fc;">
             MODELES PRETS</div>
             """, unsafe_allow_html=True)
         except Exception:
@@ -431,7 +441,7 @@ with tab1:
 with tab2:
     if st.session_state.result_df is None:
         st.markdown("""
-        <div style="text-align:center;padding:60px 20px;color:#8b949e;">
+        <div style="text-align:center;padding:60px 20px;color:#9d8ab5;">
             <div style="font-size:3rem;margin-bottom:16px;">📊</div>
             <div style="font-family:'IBM Plex Mono',monospace;font-size:1rem;">
                 Aucun resultat disponible<br>
@@ -583,42 +593,24 @@ with tab3:
                     st.session_state.kb_df,
                 )
 
-            is_found = r["etat"] == "oui"
-            color  = "#3fb950" if is_found else "#f85149"
-            label  = "PRESENTE dans OGiRYS" if is_found else "ABSENTE de OGiRYS"
-            icon   = "+" if is_found else "x"
-            ce_str = f"{r['ce_score']:.3f}" if r["ce_score"] else "N/A"
+            is_found   = r["etat"] == "oui"
+            label      = "Presente dans OGiRYS." if is_found else "Absente de OGiRYS."
+            commentaire = r["commentaire"] if r["commentaire"] else label
+            match_text  = r.get("match", "")
+
+            reponse_parts = [label]
+            if match_text:
+                reponse_parts.append(f"Correspondance : {match_text}")
+            if commentaire and commentaire not in (label, "Pas presente dans OGiRYS."):
+                reponse_parts.append(commentaire)
+            elif r["etat"] == "non":
+                reponse_parts.append("Aucune correspondance suffisante trouvee dans la base de connaissances.")
+
+            reponse_html = "<br>".join(reponse_parts)
 
             st.markdown(f"""
-            <div style="background:#161b22;border:1px solid {color};border-radius:12px;
-                        padding:24px 28px;margin-top:16px;">
-                <div style="font-family:'IBM Plex Mono',monospace;font-size:1.2rem;
-                            color:{color};font-weight:600;margin-bottom:16px;">
-                    [{icon}]  {label}
-                </div>
-                <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
-                    <div>
-                        <div style="font-size:0.72rem;color:#8b949e;text-transform:uppercase;
-                                    letter-spacing:.08em;margin-bottom:4px;">Score Hybride</div>
-                        <div style="font-family:'IBM Plex Mono',monospace;font-size:1.4rem;
-                                    color:#58a6ff;">{r['score']:.3f}</div>
-                    </div>
-                    <div>
-                        <div style="font-size:0.72rem;color:#8b949e;text-transform:uppercase;
-                                    letter-spacing:.08em;margin-bottom:4px;">Score Cross-Encoder</div>
-                        <div style="font-family:'IBM Plex Mono',monospace;font-size:1.4rem;
-                                    color:#f0883e;">{ce_str}</div>
-                    </div>
-                    <div>
-                        <div style="font-size:0.72rem;color:#8b949e;text-transform:uppercase;
-                                    letter-spacing:.08em;margin-bottom:4px;">Match KB</div>
-                        <div style="font-size:0.9rem;color:#e6edf3;">{r.get('match', '-')}</div>
-                    </div>
-                    <div>
-                        <div style="font-size:0.72rem;color:#8b949e;text-transform:uppercase;
-                                    letter-spacing:.08em;margin-bottom:4px;">Commentaire</div>
-                        <div style="font-size:0.9rem;color:#e6edf3;">{r['commentaire']}</div>
-                    </div>
-                </div>
+            <div class="model-response">
+                <div class="model-response-title">La réponse du modèle :</div>
+                <div class="model-response-text">{reponse_html}</div>
             </div>
             """, unsafe_allow_html=True)
