@@ -1,6 +1,6 @@
 """
 OGiRYS — Matching de Fonctionnalites
-Application Streamlit v2.0
+Application Streamlit 
 """
 
 import streamlit as st
@@ -19,7 +19,7 @@ st.set_page_config(
 )
 
 # ─────────────────────────────────────────────────────────────
-#  PARAMETRES FIXES (identiques au notebook)
+#  PARAMETRES
 # ─────────────────────────────────────────────────────────────
 BI_NAME   = "sentence-transformers/paraphrase-multilingual-mpnet-base-v2"
 CE_NAME   = "cross-encoder/ms-marco-MiniLM-L-6-v2"
@@ -28,8 +28,7 @@ TOP_K     = 5
 ALPHA     = 0.65
 
 # ─────────────────────────────────────────────────────────────
-#  STYLE  — palette violet / rose
-# ─────────────────────────────────────────────────────────────
+
 st.markdown("""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@300;400;600;700&display=swap');
@@ -38,11 +37,9 @@ html, body, [class*="css"] { font-family: 'IBM Plex Sans', sans-serif; }
 
 .stApp { background: #0e0a1a; color: #ede8f5; }
 
-/* ── Cacher la sidebar completement ── */
 section[data-testid="stSidebar"]       { display: none !important; }
 button[data-testid="collapsedControl"] { display: none !important; }
 
-/* ── Hero ── */
 .hero-banner {
     background: linear-gradient(135deg, #0e0a1a 0%, #1a0e2e 50%, #20082b 100%);
     border: 1px solid #2d1a4a;
@@ -67,7 +64,6 @@ button[data-testid="collapsedControl"] { display: none !important; }
 }
 .hero-sub  { font-size: 0.95rem; color: #9d8ab5; margin-top: 6px; font-weight: 300; }
 
-/* ── Stats ── */
 .stats-row { display: flex; gap: 16px; margin-bottom: 24px; }
 .stat-card {
     flex: 1; background: #150d28;
@@ -86,7 +82,6 @@ button[data-testid="collapsedControl"] { display: none !important; }
 .stat-non   .stat-number { color: #f472b6; }
 .stat-score .stat-number { color: #e879f9; }
 
-/* ── Buttons ── */
 .stButton > button {
     background: linear-gradient(135deg, #7c3aed, #c026d3) !important;
     color: #ffffff !important;
@@ -113,13 +108,11 @@ button[data-testid="collapsedControl"] { display: none !important; }
     box-shadow: 0 4px 16px rgba(236,72,153,0.35) !important;
 }
 
-/* ── Progress ── */
 .stProgress > div > div {
     background: linear-gradient(90deg, #7c3aed, #ec4899) !important;
     border-radius: 4px !important;
 }
 
-/* ── Inputs ── */
 .stSelectbox [data-baseweb="select"] > div {
     background: #150d28 !important; border-color: #2d1a4a !important; color: #ede8f5 !important;
 }
@@ -128,7 +121,6 @@ button[data-testid="collapsedControl"] { display: none !important; }
     color: #ede8f5 !important; font-family: 'IBM Plex Mono', monospace !important;
 }
 
-/* ── Section title ── */
 .section-title {
     font-family: 'IBM Plex Mono', monospace;
     font-size: 0.72rem; color: #c084fc;
@@ -137,17 +129,14 @@ button[data-testid="collapsedControl"] { display: none !important; }
     padding-bottom: 8px; margin-bottom: 16px;
 }
 
-/* ── Alerts ── */
 .stAlert {
     border-radius: 8px !important;
     border-left: 3px solid #c084fc !important;
     background: #150d28 !important;
 }
 
-/* ── Hide streamlit menu ── */
 #MainMenu, footer { visibility: hidden; }
 
-/* ── Reponse modele ── */
 .model-response {
     background: #150d28;
     border: 1px solid #7c3aed;
@@ -173,8 +162,7 @@ button[data-testid="collapsedControl"] { display: none !important; }
 """, unsafe_allow_html=True)
 
 
-# ─────────────────────────────────────────────────────────────
-#  MODEL LOADING
+
 # ─────────────────────────────────────────────────────────────
 @st.cache_resource(show_spinner=False)
 def load_models():
@@ -186,8 +174,7 @@ def load_models():
     return bi, ce
 
 
-# ─────────────────────────────────────────────────────────────
-#  CORE FUNCTIONS
+
 # ─────────────────────────────────────────────────────────────
 def load_kb(file) -> pd.DataFrame:
     df = pd.read_csv(file, encoding="latin1")
@@ -289,16 +276,14 @@ def df_to_excel_bytes(df: pd.DataFrame) -> bytes:
 
 
 # ─────────────────────────────────────────────────────────────
-#  SESSION STATE
-# ─────────────────────────────────────────────────────────────
+
 for key in ["kb_df", "excel_df", "result_df", "embeddings", "vectorizer", "tfidf_mat"]:
     if key not in st.session_state:
         st.session_state[key] = None
 
 
 # ─────────────────────────────────────────────────────────────
-#  HERO BANNER  — titre unique
-# ─────────────────────────────────────────────────────────────
+
 st.markdown("""
 <div class="hero-banner">
     <div class="hero-title">AO Generator - OGIRYS</div>
@@ -306,14 +291,12 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 
-# ─────────────────────────────────────────────────────────────
-#  TABS
+
 # ─────────────────────────────────────────────────────────────
 tab1, tab2, tab3 = st.tabs(["  Upload & Traitement  ", "  Resultats  ", "  Recherche manuelle  "])
 
 
-# ══════════════════════════════════════════════════════════════
-#  TAB 1 — UPLOAD & TRAITEMENT
+
 # ══════════════════════════════════════════════════════════════
 with tab1:
     col_l, col_r = st.columns(2, gap="large")
@@ -375,7 +358,7 @@ with tab1:
         except Exception:
             pass
 
-    # ── Indexation KB ─────────────────────────────────────────
+    # ── 
     if st.session_state.kb_df is not None:
         if st.button("Indexer la base de connaissances", key="index_kb"):
             with st.spinner("Calcul des embeddings et TF-IDF..."):
