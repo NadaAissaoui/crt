@@ -36,7 +36,7 @@ st.markdown("""
 
 html, body, [class*="css"] { font-family: 'IBM Plex Sans', sans-serif; }
 
-.stApp { background: #0e0a1a; color: #ede8f5; }
+.stApp { background: #faf8ff; color: #1a0e2e; }
 
 /* ── Cacher la sidebar completement ── */
 section[data-testid="stSidebar"]       { display: none !important; }
@@ -44,8 +44,8 @@ button[data-testid="collapsedControl"] { display: none !important; }
 
 /* ── Hero ── */
 .hero-banner {
-    background: linear-gradient(135deg, #0e0a1a 0%, #1a0e2e 50%, #20082b 100%);
-    border: 1px solid #2d1a4a;
+    background: linear-gradient(135deg, #f3e8ff 0%, #fce7f3 50%, #ede9fe 100%);
+    border: 1px solid #d8b4fe;
     border-radius: 12px;
     padding: 32px 40px;
     margin-bottom: 28px;
@@ -57,34 +57,34 @@ button[data-testid="collapsedControl"] { display: none !important; }
     position: absolute;
     top: -50%; right: -10%;
     width: 400px; height: 400px;
-    background: radial-gradient(circle, rgba(180,80,255,0.12) 0%, transparent 70%);
+    background: radial-gradient(circle, rgba(168,85,247,0.15) 0%, transparent 70%);
     pointer-events: none;
 }
 .hero-title {
     font-family: 'IBM Plex Mono', monospace;
     font-size: 2.2rem; font-weight: 600;
-    color: #c084fc; margin: 0; letter-spacing: -1px;
+    color: #7c3aed; margin: 0; letter-spacing: -1px;
 }
 .hero-sub  { font-size: 0.95rem; color: #9d8ab5; margin-top: 6px; font-weight: 300; }
 
 /* ── Stats ── */
 .stats-row { display: flex; gap: 16px; margin-bottom: 24px; }
 .stat-card {
-    flex: 1; background: #150d28;
-    border: 1px solid #2d1a4a; border-radius: 10px;
+    flex: 1; background: #ffffff;
+    border: 1px solid #e9d5ff; border-radius: 10px;
     padding: 18px 20px; text-align: center;
     transition: border-color 0.2s;
 }
-.stat-card:hover { border-color: #c084fc; }
+.stat-card:hover { border-color: #a855f7; }
 .stat-number {
     font-family: 'IBM Plex Mono', monospace;
     font-size: 2rem; font-weight: 600; line-height: 1;
 }
-.stat-label { font-size: 0.75rem; color: #9d8ab5; margin-top: 4px; text-transform: uppercase; letter-spacing: 0.05em; }
-.stat-total .stat-number { color: #ede8f5; }
-.stat-oui   .stat-number { color: #c084fc; }
-.stat-non   .stat-number { color: #f472b6; }
-.stat-score .stat-number { color: #e879f9; }
+.stat-label { font-size: 0.75rem; color: #6d28d9; margin-top: 4px; text-transform: uppercase; letter-spacing: 0.05em; }
+.stat-total .stat-number { color: #1a0e2e; }
+.stat-oui   .stat-number { color: #7c3aed; }
+.stat-non   .stat-number { color: #db2777; }
+.stat-score .stat-number { color: #9333ea; }
 
 /* ── Buttons ── */
 .stButton > button {
@@ -121,27 +121,27 @@ button[data-testid="collapsedControl"] { display: none !important; }
 
 /* ── Inputs ── */
 .stSelectbox [data-baseweb="select"] > div {
-    background: #150d28 !important; border-color: #2d1a4a !important; color: #ede8f5 !important;
+    background: #ffffff !important; border-color: #e9d5ff !important; color: #1a0e2e !important;
 }
 .stTextInput input {
-    background: #150d28 !important; border-color: #2d1a4a !important;
-    color: #ede8f5 !important; font-family: 'IBM Plex Mono', monospace !important;
+    background: #ffffff !important; border-color: #e9d5ff !important;
+    color: #1a0e2e !important; font-family: 'IBM Plex Mono', monospace !important;
 }
 
 /* ── Section title ── */
 .section-title {
     font-family: 'IBM Plex Mono', monospace;
-    font-size: 0.72rem; color: #c084fc;
+    font-size: 0.72rem; color: #7c3aed;
     text-transform: uppercase; letter-spacing: 0.12em;
-    border-bottom: 1px solid #2d1a4a;
+    border-bottom: 1px solid #e9d5ff;
     padding-bottom: 8px; margin-bottom: 16px;
 }
 
 /* ── Alerts ── */
 .stAlert {
     border-radius: 8px !important;
-    border-left: 3px solid #c084fc !important;
-    background: #150d28 !important;
+    border-left: 3px solid #a855f7 !important;
+    background: #faf5ff !important;
 }
 
 /* ── Hide streamlit menu ── */
@@ -149,9 +149,9 @@ button[data-testid="collapsedControl"] { display: none !important; }
 
 /* ── Reponse modele ── */
 .model-response {
-    background: #150d28;
-    border: 1px solid #7c3aed;
-    border-left: 4px solid #e879f9;
+    background: #faf5ff;
+    border: 1px solid #d8b4fe;
+    border-left: 4px solid #a855f7;
     border-radius: 12px;
     padding: 24px 28px;
     margin-top: 16px;
@@ -159,14 +159,14 @@ button[data-testid="collapsedControl"] { display: none !important; }
 .model-response-title {
     font-family: 'IBM Plex Mono', monospace;
     font-size: 0.72rem;
-    color: #c084fc;
+    color: #7c3aed;
     text-transform: uppercase;
     letter-spacing: 0.12em;
     margin-bottom: 12px;
 }
 .model-response-text {
     font-size: 0.95rem;
-    color: #ede8f5;
+    color: #1a0e2e;
     line-height: 1.7;
 }
 </style>
@@ -367,9 +367,9 @@ with tab1:
         try:
             load_models()
             st.markdown("""
-            <div style="background:rgba(192,132,252,0.1);border:1px solid rgba(192,132,252,0.3);
+            <div style="background:rgba(124,58,237,0.08);border:1px solid rgba(124,58,237,0.3);
             border-radius:8px;padding:12px;text-align:center;
-            font-family:'IBM Plex Mono',monospace;font-size:0.78rem;color:#c084fc;">
+            font-family:'IBM Plex Mono',monospace;font-size:0.78rem;color:#7c3aed;">
             MODELES PRETS</div>
             """, unsafe_allow_html=True)
         except Exception:
@@ -441,7 +441,7 @@ with tab1:
 with tab2:
     if st.session_state.result_df is None:
         st.markdown("""
-        <div style="text-align:center;padding:60px 20px;color:#9d8ab5;">
+        <div style="text-align:center;padding:60px 20px;color:#6d28d9;">
             <div style="font-size:3rem;margin-bottom:16px;">📊</div>
             <div style="font-family:'IBM Plex Mono',monospace;font-size:1rem;">
                 Aucun resultat disponible<br>
