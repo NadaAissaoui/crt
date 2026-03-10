@@ -302,6 +302,7 @@ for key in ["kb_df", "excel_df", "result_df", "embeddings", "vectorizer", "tfidf
 st.markdown("""
 <div class="hero-banner">
     <div class="hero-title">AO Generator - OGIRYS</div>
+    <div style="font-family:'IBM Plex Sans',sans-serif;font-size:0.78rem;color:#9333ea;margin-top:8px;font-weight:300;letter-spacing:0.04em;">Nada's Project — Version 2.0</div>
 </div>
 """, unsafe_allow_html=True)
 
