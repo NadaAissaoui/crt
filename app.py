@@ -608,8 +608,6 @@ with tab3:
             match_text  = r.get("match", "")
 
             reponse_parts = [label]
-            if match_text:
-                reponse_parts.append(f"Correspondance : {match_text}")
             if commentaire and commentaire not in (label, "Pas presente dans OGiRYS."):
                 reponse_parts.append(commentaire)
             elif r["etat"] == "non":
