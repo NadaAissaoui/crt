@@ -1,5 +1,6 @@
 """
 OGiRYS — Matching de Fonctionnalites
+Application Streamlit v2.0
 """
 
 import streamlit as st
@@ -293,6 +294,10 @@ def df_to_excel_bytes(df: pd.DataFrame) -> bytes:
 for key in ["kb_df", "excel_df", "result_df", "embeddings", "vectorizer", "tfidf_mat"]:
     if key not in st.session_state:
         st.session_state[key] = None
+if "active_tab" not in st.session_state:
+    st.session_state.active_tab = 0
+if "active_tab" not in st.session_state:
+    st.session_state.active_tab = 0
 
 
 # ─────────────────────────────────────────────────────────────
@@ -311,6 +316,24 @@ st.markdown("""
 # ─────────────────────────────────────────────────────────────
 tab1, tab2, tab3 = st.tabs(["  Upload & Traitement  ", "  Resultats  ", "  Recherche manuelle  "])
 
+if st.session_state.active_tab == 1:
+    st.session_state.active_tab = 0
+    st.markdown(
+        "<script>window.addEventListener('load',function(){setTimeout(function(){"
+        "var t=window.parent.document.querySelectorAll('[data-baseweb=tab]');"
+        "if(t&&t.length>1){t[1].click();}},400);});</script>",
+        unsafe_allow_html=True
+    )
+
+if st.session_state.active_tab == 1:
+    st.session_state.active_tab = 0
+    st.markdown(
+        "<script>window.addEventListener('load',function(){setTimeout(function(){"
+        "var t=window.parent.document.querySelectorAll('[data-baseweb=tab]');"
+        "if(t&&t.length>1){t[1].click();}},400);});</script>",
+        unsafe_allow_html=True
+    )
+
 
 # ══════════════════════════════════════════════════════════════
 #  TAB 1 — UPLOAD & TRAITEMENT
@@ -327,9 +350,38 @@ with tab1:
         if kb_file:
             try:
                 st.session_state.kb_df = load_kb(kb_file)
-                st.success(f"{len(st.session_state.kb_df)} entrees chargees")
-                with st.expander("Apercu KB"):
-                    st.dataframe(st.session_state.kb_df.head(5), use_container_width=True)
+                cols = [c.strip() for c in st.session_state.kb_df.columns]
+                has_ctx  = any("contexte" in c.lower() and "usage" in c.lower() for c in cols)
+                has_fonc = any("fonctionnalit" in c.lower() for c in cols)
+                has_etat = any("etat" in c.lower() or "\u00e9tat" in c.lower() for c in cols)
+                has_comm = any("commentaire" in c.lower() for c in cols)
+                if not has_ctx or not has_fonc:
+                    manquantes = []
+                    if not has_ctx:  manquantes.append("Contexte d'usage")
+                    if not has_fonc: manquantes.append("Fonctionnalit\u00e9")
+                    st.error(f"\u26a0\ufe0f Colonnes obligatoires introuvables : {', '.join(manquantes)}")
+                    st.markdown(
+                        "<div style='background:#fdf4ff;border:1px solid #d8b4fe;border-left:4px solid #9333ea;"
+                        "border-radius:8px;padding:14px 18px;font-size:0.85rem;color:#3b0764;margin-top:8px;'>"
+                        "<b>\U0001f4cb Colonnes attendues dans draft.csv :</b><br><br>"
+                        "&nbsp;&nbsp;\u2705 <b>Contexte d\'usage</b> \u2014 obligatoire<br>"
+                        "&nbsp;&nbsp;\u2705 <b>Fonctionnalit\u00e9</b> \u2014 obligatoire<br>"
+                        "&nbsp;&nbsp;\u26aa <b>Etat</b> \u2014 optionnelle (cr\u00e9\u00e9e automatiquement si absente)<br>"
+                        "&nbsp;&nbsp;\u26aa <b>Commentaire</b> \u2014 optionnelle (cr\u00e9\u00e9e automatiquement si absente)<br><br>"
+                        "<b>V\u00e9rifiez les noms de colonnes dans votre fichier CSV.</b></div>",
+                        unsafe_allow_html=True
+                    )
+                    st.session_state.kb_df = None
+                else:
+                    if not has_etat:
+                        st.session_state.kb_df["Etat"] = ""
+                        st.warning("Colonne Etat absente \u2014 cr\u00e9\u00e9e automatiquement.")
+                    if not has_comm:
+                        st.session_state.kb_df["Commentaire"] = ""
+                        st.warning("Colonne Commentaire absente \u2014 cr\u00e9\u00e9e automatiquement.")
+                    st.success(f"\u2705 {len(st.session_state.kb_df)} entr\u00e9es charg\u00e9es")
+                    with st.expander("Apercu KB"):
+                        st.dataframe(st.session_state.kb_df.head(5), use_container_width=True)
             except Exception as e:
                 st.error(f"Erreur : {e}")
 
@@ -342,9 +394,23 @@ with tab1:
         if xl_file:
             try:
                 st.session_state.excel_df = pd.read_excel(xl_file)
-                st.success(f"{len(st.session_state.excel_df)} lignes detectees")
-                with st.expander("Apercu Excel"):
-                    st.dataframe(st.session_state.excel_df.head(5), use_container_width=True)
+                cols_xl = [c.strip() for c in st.session_state.excel_df.columns]
+                has_fonc_xl = any("fonctionnalit" in c.lower() for c in cols_xl)
+                if not has_fonc_xl:
+                    st.error("\u26a0\ufe0f Colonne Fonctionnalit\u00e9 introuvable dans le fichier Excel.")
+                    st.markdown(
+                        "<div style='background:#fdf4ff;border:1px solid #d8b4fe;border-left:4px solid #9333ea;"
+                        "border-radius:8px;padding:14px 18px;font-size:0.85rem;color:#3b0764;margin-top:8px;'>"
+                        "<b>\U0001f4cb Le fichier Excel doit contenir une colonne dont le nom contient "
+                        "'Fonctionnalit\u00e9'.</b><br>V\u00e9rifiez les noms de colonnes avant de relancer."
+                        "</div>",
+                        unsafe_allow_html=True
+                    )
+                    st.session_state.excel_df = None
+                else:
+                    st.success(f"\u2705 {len(st.session_state.excel_df)} lignes d\u00e9tect\u00e9es")
+                    with st.expander("Apercu Excel"):
+                        st.dataframe(st.session_state.excel_df.head(5), use_container_width=True)
             except Exception as e:
                 st.error(f"Erreur : {e}")
 
@@ -406,10 +472,12 @@ with tab1:
                 )
                 if result is not None:
                     st.session_state.result_df = result
+                    st.session_state.active_tab = 1
                     progress_bar.progress(1.0, text="Termine !")
                     oui = (result["Etat"] == "oui").sum()
                     non = (result["Etat"] == "non").sum()
-                    st.success(f"Matching termine ! {oui} presentes / {non} absentes — voir onglet Resultats")
+                    st.success(f"\u2705 Matching termin\u00e9 ! {oui} pr\u00e9sentes / {non} absentes \u2014 redirection...")
+                    st.rerun()
             except Exception as e:
                 st.error(f"Erreur : {e}")
 
