@@ -296,8 +296,6 @@ for key in ["kb_df", "excel_df", "result_df", "embeddings", "vectorizer", "tfidf
         st.session_state[key] = None
 if "active_tab" not in st.session_state:
     st.session_state.active_tab = 0
-if "active_tab" not in st.session_state:
-    st.session_state.active_tab = 0
 
 
 # ─────────────────────────────────────────────────────────────
@@ -314,25 +312,13 @@ st.markdown("""
 # ─────────────────────────────────────────────────────────────
 #  TABS
 # ─────────────────────────────────────────────────────────────
+# Gestion de la navigation par query params
+_goto = st.query_params.get("tab", "0")
+if _goto == "2" and st.session_state.active_tab == 1:
+    st.session_state.active_tab = 0
+    st.query_params["tab"] = "0"
+
 tab1, tab2, tab3 = st.tabs(["  Upload & Traitement  ", "  Resultats  ", "  Recherche manuelle  "])
-
-if st.session_state.active_tab == 1:
-    st.session_state.active_tab = 0
-    st.markdown(
-        "<script>window.addEventListener('load',function(){setTimeout(function(){"
-        "var t=window.parent.document.querySelectorAll('[data-baseweb=tab]');"
-        "if(t&&t.length>1){t[1].click();}},400);});</script>",
-        unsafe_allow_html=True
-    )
-
-if st.session_state.active_tab == 1:
-    st.session_state.active_tab = 0
-    st.markdown(
-        "<script>window.addEventListener('load',function(){setTimeout(function(){"
-        "var t=window.parent.document.querySelectorAll('[data-baseweb=tab]');"
-        "if(t&&t.length>1){t[1].click();}},400);});</script>",
-        unsafe_allow_html=True
-    )
 
 
 # ══════════════════════════════════════════════════════════════
@@ -342,39 +328,36 @@ with tab1:
     col_l, col_r = st.columns(2, gap="large")
 
     with col_l:
-        st.markdown('<div class="section-title">Base de connaissances</div>', unsafe_allow_html=True)
+        st.markdown('<div class="section-title">Base de connaissances (draft.csv)</div>', unsafe_allow_html=True)
         kb_file = st.file_uploader(
             "draft.csv", type=["csv"], key="kb_upload",
             label_visibility="collapsed",
         )
         if kb_file:
             try:
-                # Lire d'abord brut pour verifier les colonnes AVANT load_kb
                 import pandas as _pd_raw
                 _df_raw = _pd_raw.read_csv(kb_file, encoding="latin1", nrows=0)
-                kb_file.seek(0)  # Rembobiner pour load_kb apres
+                kb_file.seek(0)
                 cols = [c.strip() for c in _df_raw.columns]
-
                 has_ctx  = any("contexte" in c.lower() and "usage" in c.lower() for c in cols)
                 has_fonc = any("fonctionnalit" in c.lower() for c in cols)
                 has_etat = any("etat" in c.lower() or "état" in c.lower() for c in cols)
                 has_comm = any("commentaire" in c.lower() for c in cols)
-
                 if not has_ctx or not has_fonc:
                     manquantes = []
                     if not has_ctx:  manquantes.append("Contexte d'usage")
                     if not has_fonc: manquantes.append("Fonctionnalité")
                     st.session_state.kb_df = None
-                    st.error(f"⚠️ Colonnes obligatoires introuvables dans le CSV : **{', '.join(manquantes)}**")
+                    st.error(f"⚠️ Colonnes obligatoires introuvables : **{', '.join(manquantes)}**")
                     st.markdown(
                         "<div style='background:#fdf4ff;border:1px solid #d8b4fe;border-left:4px solid #9333ea;"
                         "border-radius:8px;padding:14px 18px;font-size:0.85rem;color:#3b0764;margin-top:8px;'>"
                         "<b>📋 Colonnes attendues dans draft.csv :</b><br><br>"
                         "&nbsp;&nbsp;✅ <b>Contexte d'usage</b> — obligatoire<br>"
                         "&nbsp;&nbsp;✅ <b>Fonctionnalité</b> — obligatoire<br>"
-                        "&nbsp;&nbsp;⚪ <b>Etat</b> — optionnelle (créée automatiquement si absente)<br>"
-                        "&nbsp;&nbsp;⚪ <b>Commentaire</b> — optionnelle (créée automatiquement si absente)<br><br>"
-                        f"<b>Colonnes détectées dans votre fichier : {', '.join(cols)}</b></div>",
+                        "&nbsp;&nbsp;⚪ <b>Etat</b> — optionnelle (créée si absente)<br>"
+                        "&nbsp;&nbsp;⚪ <b>Commentaire</b> — optionnelle (créée si absente)<br><br>"
+                        f"<b>Colonnes détectées : {', '.join(cols)}</b></div>",
                         unsafe_allow_html=True
                     )
                 else:
@@ -391,24 +374,31 @@ with tab1:
             except Exception as e:
                 st.error(f"Erreur : {e}")
 
+    with col_r:
+        st.markdown('<div class="section-title">Fichier à traiter (.xlsx)</div>', unsafe_allow_html=True)
+        xl_file = st.file_uploader(
+            "fichier.xlsx", type=["xlsx", "xls"], key="xl_upload",
+            label_visibility="collapsed",
+        )
         if xl_file:
             try:
-                st.session_state.excel_df = pd.read_excel(xl_file)
-                cols_xl = [c.strip() for c in st.session_state.excel_df.columns]
+                _df_xl = pd.read_excel(xl_file)
+                cols_xl = [c.strip() for c in _df_xl.columns]
                 has_fonc_xl = any("fonctionnalit" in c.lower() for c in cols_xl)
                 if not has_fonc_xl:
-                    st.error("\u26a0\ufe0f Colonne Fonctionnalit\u00e9 introuvable dans le fichier Excel.")
+                    st.session_state.excel_df = None
+                    st.error("⚠️ Colonne **Fonctionnalité** introuvable dans le fichier Excel.")
                     st.markdown(
                         "<div style='background:#fdf4ff;border:1px solid #d8b4fe;border-left:4px solid #9333ea;"
                         "border-radius:8px;padding:14px 18px;font-size:0.85rem;color:#3b0764;margin-top:8px;'>"
-                        "<b>\U0001f4cb Le fichier Excel doit contenir une colonne dont le nom contient "
-                        "'Fonctionnalit\u00e9'.</b><br>V\u00e9rifiez les noms de colonnes avant de relancer."
-                        "</div>",
+                        "<b>📋 Le fichier Excel doit contenir une colonne dont le nom contient 'Fonctionnalité'.</b><br>"
+                        f"Colonnes détectées : {', '.join(cols_xl)}<br><br>"
+                        "Vérifiez les noms de colonnes avant de relancer.</div>",
                         unsafe_allow_html=True
                     )
-                    st.session_state.excel_df = None
                 else:
-                    st.success(f"\u2705 {len(st.session_state.excel_df)} lignes d\u00e9tect\u00e9es")
+                    st.session_state.excel_df = _df_xl
+                    st.success(f"✅ {len(st.session_state.excel_df)} lignes détectées")
                     with st.expander("Apercu Excel"):
                         st.dataframe(st.session_state.excel_df.head(5), use_container_width=True)
             except Exception as e:
@@ -420,15 +410,15 @@ with tab1:
     st.markdown('<div class="section-title">Initialisation</div>', unsafe_allow_html=True)
 
     if st.session_state.kb_df is not None:
-        if st.button("Charger les modeles & Indexer la KB", key="load_and_index_btn"):
-            with st.spinner("Chargement des modeles et calcul des embeddings..."):
+        if st.button("Charger les modèles & Indexer la KB", key="load_and_index_btn"):
+            with st.spinner("Chargement des modèles et calcul des embeddings..."):
                 try:
                     bi, ce = load_models()
                     corpus, vec, tmat, emb = build_index(st.session_state.kb_df, bi)
                     st.session_state.vectorizer = vec
                     st.session_state.tfidf_mat  = tmat
                     st.session_state.embeddings = emb
-                    st.success(f"Modeles charges et index construit ({emb.shape[0]} entrees)")
+                    st.success(f"Modèles chargés et index construit ({emb.shape[0]} entrées)")
                 except Exception as e:
                     st.error(f"Erreur : {e}")
     else:
@@ -447,8 +437,8 @@ with tab1:
     if not ready:
         missing = []
         if st.session_state.kb_df is None:      missing.append("KB (draft.csv)")
-        if st.session_state.excel_df is None:   missing.append("Excel a traiter")
-        if st.session_state.embeddings is None: missing.append("Index KB")
+        if st.session_state.excel_df is None:   missing.append("Fichier Excel")
+        if st.session_state.embeddings is None: missing.append("Index KB (cliquez sur Charger & Indexer)")
         st.info(f"En attente : {' | '.join(missing)}")
 
     if ready:
@@ -473,10 +463,11 @@ with tab1:
                 if result is not None:
                     st.session_state.result_df = result
                     st.session_state.active_tab = 1
-                    progress_bar.progress(1.0, text="Termine !")
+                    progress_bar.progress(1.0, text="Terminé !")
                     oui = (result["Etat"] == "oui").sum()
                     non = (result["Etat"] == "non").sum()
-                    st.success(f"\u2705 Matching termin\u00e9 ! {oui} pr\u00e9sentes / {non} absentes \u2014 redirection...")
+                    st.success(f"✅ Matching terminé ! {oui} présentes / {non} absentes")
+                    st.query_params["tab"] = "2"
                     st.rerun()
             except Exception as e:
                 st.error(f"Erreur : {e}")
