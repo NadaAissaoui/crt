@@ -18,14 +18,16 @@ st.set_page_config(
 )
 
 # ─────────────────────────────────────────────────────────────
-
+#  PARAMETRES FIXES (identiques au notebook)
+# ─────────────────────────────────────────────────────────────
 BI_NAME   = "sentence-transformers/paraphrase-multilingual-mpnet-base-v2"
 CE_NAME   = "cross-encoder/ms-marco-MiniLM-L-6-v2"
 THRESHOLD = 0.40
 TOP_K     = 5
 ALPHA     = 0.65
 
-
+# ─────────────────────────────────────────────────────────────
+#  STYLE  — palette violet / rose
 # ─────────────────────────────────────────────────────────────
 st.markdown("""
 <style>
@@ -116,6 +118,7 @@ button[data-testid="collapsedControl"] { display: none !important; }
     border-radius: 4px !important;
 }
 
+/* ── Inputs ── */
 .stSelectbox [data-baseweb="select"] > div {
     background: #ffffff !important; border-color: #e9d5ff !important; color: #1a0e2e !important;
 }
@@ -124,6 +127,7 @@ button[data-testid="collapsedControl"] { display: none !important; }
     color: #1a0e2e !important; font-family: 'IBM Plex Mono', monospace !important;
 }
 
+/* ── Section title ── */
 .section-title {
     font-family: 'IBM Plex Mono', monospace;
     font-size: 0.72rem; color: #7c3aed;
@@ -132,14 +136,17 @@ button[data-testid="collapsedControl"] { display: none !important; }
     padding-bottom: 8px; margin-bottom: 16px;
 }
 
+/* ── Alerts ── */
 .stAlert {
     border-radius: 8px !important;
     border-left: 3px solid #a855f7 !important;
     background: #faf5ff !important;
 }
 
+/* ── Hide streamlit menu ── */
 #MainMenu, footer { visibility: hidden; }
 
+/* ── Reponse modele ── */
 .model-response {
     background: #faf5ff;
     border: 1px solid #d8b4fe;
@@ -165,7 +172,8 @@ button[data-testid="collapsedControl"] { display: none !important; }
 """, unsafe_allow_html=True)
 
 
-
+# ─────────────────────────────────────────────────────────────
+#  MODEL LOADING
 # ─────────────────────────────────────────────────────────────
 @st.cache_resource(show_spinner=False)
 def load_models():
@@ -177,7 +185,8 @@ def load_models():
     return bi, ce
 
 
-
+# ─────────────────────────────────────────────────────────────
+#  CORE FUNCTIONS
 # ─────────────────────────────────────────────────────────────
 def load_kb(file) -> pd.DataFrame:
     df = pd.read_csv(file, encoding="latin1")
@@ -286,7 +295,8 @@ for key in ["kb_df", "excel_df", "result_df", "embeddings", "vectorizer", "tfidf
         st.session_state[key] = None
 
 
-
+# ─────────────────────────────────────────────────────────────
+#  HERO BANNER  — titre unique
 # ─────────────────────────────────────────────────────────────
 st.markdown("""
 <div class="hero-banner">
@@ -296,11 +306,14 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 
-
+# ─────────────────────────────────────────────────────────────
+#  TABS
 # ─────────────────────────────────────────────────────────────
 tab1, tab2, tab3 = st.tabs(["  Upload & Traitement  ", "  Resultats  ", "  Recherche manuelle  "])
 
 
+# ══════════════════════════════════════════════════════════════
+#  TAB 1 — UPLOAD & TRAITEMENT
 # ══════════════════════════════════════════════════════════════
 with tab1:
     col_l, col_r = st.columns(2, gap="large")
@@ -337,43 +350,23 @@ with tab1:
 
     st.divider()
 
+    # ── Chargement modeles + Indexation (bouton unique) ─────────
     st.markdown('<div class="section-title">Initialisation</div>', unsafe_allow_html=True)
-    col_m1, col_m2 = st.columns([2, 1], gap="medium")
 
-    with col_m1:
-        if st.button("Charger les modeles IA", key="load_models_btn"):
-            with st.spinner("Chargement des modeles (premiere fois ~2 min)..."):
-                try:
-                    load_models()
-                    st.success("Modeles charges et prets !")
-                except Exception as e:
-                    st.error(f"Erreur : {e}")
-
-    with col_m2:
-        try:
-            load_models()
-            st.markdown("""
-            <div style="background:rgba(124,58,237,0.08);border:1px solid rgba(124,58,237,0.3);
-            border-radius:8px;padding:12px;text-align:center;
-            font-family:'IBM Plex Mono',monospace;font-size:0.78rem;color:#7c3aed;">
-            MODELES PRETS</div>
-            """, unsafe_allow_html=True)
-        except Exception:
-            pass
-
-    # ── Indexation KB ─────────────────────────────────────────
     if st.session_state.kb_df is not None:
-        if st.button("Indexer la base de connaissances", key="index_kb"):
-            with st.spinner("Calcul des embeddings et TF-IDF..."):
+        if st.button("Charger les modeles & Indexer la KB", key="load_and_index_btn"):
+            with st.spinner("Chargement des modeles et calcul des embeddings..."):
                 try:
                     bi, ce = load_models()
                     corpus, vec, tmat, emb = build_index(st.session_state.kb_df, bi)
                     st.session_state.vectorizer = vec
                     st.session_state.tfidf_mat  = tmat
                     st.session_state.embeddings = emb
-                    st.success(f"Index construit ({emb.shape[0]} entrees, dim={emb.shape[1]})")
+                    st.success(f"Modeles charges et index construit ({emb.shape[0]} entrees)")
                 except Exception as e:
-                    st.error(f"Erreur indexation : {e}")
+                    st.error(f"Erreur : {e}")
+    else:
+        st.info("Chargez d'abord la base de connaissances (draft.csv) ci-dessus.")
 
     # ── Lancer le traitement ──────────────────────────────────
     st.divider()
@@ -599,11 +592,21 @@ with tab3:
             elif r["etat"] == "non":
                 reponse_parts.append("Aucune correspondance suffisante trouvee dans la base de connaissances.")
 
+            reponse_text = "\n".join(reponse_parts)
             reponse_html = "<br>".join(reponse_parts)
 
             st.markdown(f"""
             <div class="model-response">
                 <div class="model-response-title">La réponse du modèle :</div>
-                <div class="model-response-text">{reponse_html}</div>
+                <div class="model-response-text" id="reponse-text">{reponse_html}</div>
+                <button onclick="navigator.clipboard.writeText(`{reponse_text}`)"
+                    style="margin-top:16px;background:linear-gradient(135deg,#7c3aed,#c026d3);
+                    color:#fff;border:none;border-radius:6px;padding:7px 18px;
+                    font-family:'IBM Plex Mono',monospace;font-size:0.75rem;
+                    font-weight:600;cursor:pointer;letter-spacing:0.05em;"
+                    onmouseover="this.style.opacity='0.85'"
+                    onmouseout="this.style.opacity='1'">
+                    ⎘ Copier la réponse
+                </button>
             </div>
             """, unsafe_allow_html=True)
