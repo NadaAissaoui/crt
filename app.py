@@ -601,7 +601,3 @@ elif st.session_state.current_tab == 2:
                 <div class="model-response-text">{reponse_html}</div>
             </div>
             """, unsafe_allow_html=True)
-            # Bouton copier natif Streamlit (les HTML buttons sont bloques par Streamlit)
-            col_copy, _ = st.columns([1, 3])
-            with col_copy:
-                st.code(reponse_text, language=None)
