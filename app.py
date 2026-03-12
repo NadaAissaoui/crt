@@ -252,6 +252,12 @@ for key in ["kb_df", "excel_df", "result_df", "embeddings", "vectorizer", "tfidf
         st.session_state[key] = None
 if "current_tab" not in st.session_state:
     st.session_state.current_tab = 0
+if "kb_loaded_name" not in st.session_state:
+    st.session_state.kb_loaded_name = None
+if "xl_loaded_name" not in st.session_state:
+    st.session_state.xl_loaded_name = None
+if "goto_results" not in st.session_state:
+    st.session_state.goto_results = False
 
 
 # ─────────────────────────────────────────────────────────────
@@ -296,13 +302,19 @@ st.markdown("<hr style='margin:0 0 24px 0;border:none;border-top:2px solid #E2D8
 # ══════════════════════════════════════════════════════════════
 if st.session_state.current_tab == 0:
 
+    # Redirection automatique apres matching
+    if st.session_state.get("goto_results", False):
+        st.session_state.goto_results = False
+        st.session_state.current_tab = 1
+        st.rerun()
+
     col_l, col_r = st.columns(2, gap="large")
 
     # ── KB (draft.csv) ────────────────────────────────────────
     with col_l:
         st.markdown('<div class="section-title">Base de connaissances (draft.csv)</div>', unsafe_allow_html=True)
         kb_file = st.file_uploader("draft.csv", type=["csv"], key="kb_upload", label_visibility="collapsed")
-        if kb_file:
+        if kb_file and kb_file.name != st.session_state.kb_loaded_name:
             try:
                 import pandas as _pd_raw
                 _df_raw = _pd_raw.read_csv(kb_file, encoding="latin1", nrows=0)
@@ -313,6 +325,7 @@ if st.session_state.current_tab == 0:
                     if not has_ctx:  manquantes.append("Contexte d'usage")
                     if not has_fonc: manquantes.append("Fonctionnalit\u00e9")
                     st.session_state.kb_df = None
+                    st.session_state.kb_loaded_name = None
                     st.error(f"\u26a0\ufe0f Colonnes obligatoires manquantes : **{', '.join(manquantes)}**")
                     st.markdown(
                         f"<div class='alert-box'><b>\U0001f4cb Colonnes attendues :</b><br><br>"
@@ -325,6 +338,7 @@ if st.session_state.current_tab == 0:
                     )
                 else:
                     st.session_state.kb_df = load_kb(kb_file)
+                    st.session_state.kb_loaded_name = kb_file.name
                     if not has_etat:
                         st.session_state.kb_df["Etat"] = ""
                         st.warning("Colonne **Etat** absente \u2014 cr\u00e9\u00e9e automatiquement.")
@@ -336,12 +350,14 @@ if st.session_state.current_tab == 0:
                         st.dataframe(st.session_state.kb_df.head(5), use_container_width=True)
             except Exception as e:
                 st.error(f"Erreur : {e}")
+        elif st.session_state.kb_df is not None and kb_file:
+            st.success(f"\u2705 {len(st.session_state.kb_df)} entr\u00e9es charg\u00e9es ({kb_file.name})")
 
     # ── Fichier Excel ─────────────────────────────────────────
     with col_r:
         st.markdown('<div class="section-title">Fichier \u00e0 traiter (.xlsx)</div>', unsafe_allow_html=True)
         xl_file = st.file_uploader("fichier.xlsx", type=["xlsx", "xls"], key="xl_upload", label_visibility="collapsed")
-        if xl_file:
+        if xl_file and xl_file.name != st.session_state.xl_loaded_name:
             try:
                 _df_xl = pd.read_excel(xl_file)
                 has_ctx_xl, has_fonc_xl, has_etat_xl, has_comm_xl, cols_xl = check_cols(_df_xl)
@@ -350,6 +366,7 @@ if st.session_state.current_tab == 0:
                     if not has_ctx_xl:  manquantes_xl.append("Contexte d'usage")
                     if not has_fonc_xl: manquantes_xl.append("Fonctionnalit\u00e9")
                     st.session_state.excel_df = None
+                    st.session_state.xl_loaded_name = None
                     st.error(f"\u26a0\ufe0f Colonnes obligatoires manquantes : **{', '.join(manquantes_xl)}**")
                     st.markdown(
                         f"<div class='alert-box'><b>\U0001f4cb V\u00e9rifiez les noms de colonnes :</b><br><br>"
@@ -360,11 +377,14 @@ if st.session_state.current_tab == 0:
                     )
                 else:
                     st.session_state.excel_df = _df_xl
+                    st.session_state.xl_loaded_name = xl_file.name
                     st.success(f"\u2705 {len(st.session_state.excel_df)} lignes d\u00e9tect\u00e9es")
                     with st.expander("Aper\u00e7u Excel"):
                         st.dataframe(st.session_state.excel_df.head(5), use_container_width=True)
             except Exception as e:
                 st.error(f"Erreur : {e}")
+        elif st.session_state.excel_df is not None and xl_file:
+            st.success(f"\u2705 {len(st.session_state.excel_df)} lignes d\u00e9tect\u00e9es ({xl_file.name})")
 
     st.divider()
 
@@ -423,13 +443,12 @@ if st.session_state.current_tab == 0:
                 )
                 if result is not None:
                     st.session_state.result_df = result
+                    st.session_state.goto_results = True
                     progress_bar.progress(1.0, text="Termin\u00e9 !")
                     oui = (result["Etat"] == "oui").sum()
                     non = (result["Etat"] == "non").sum()
                     st.success(f"\u2705 Matching termin\u00e9 ! {oui} pr\u00e9sentes / {non} absentes")
-                    if st.button("\U0001f4ca  Voir les r\u00e9sultats  \u2192", key="goto_results"):
-                        st.session_state.current_tab = 1
-                        st.rerun()
+                    st.rerun()
             except Exception as e:
                 st.error(f"Erreur : {e}")
 
@@ -580,14 +599,9 @@ elif st.session_state.current_tab == 2:
             <div class="model-response">
                 <div class="model-response-title">La r\u00e9ponse du mod\u00e8le :</div>
                 <div class="model-response-text">{reponse_html}</div>
-                <button onclick="navigator.clipboard.writeText(`{reponse_text}`)"
-                    style="margin-top:16px;background:linear-gradient(135deg,#482882,#E8005F);
-                    color:#fff;border:none;border-radius:6px;padding:7px 18px;
-                    font-family:'IBM Plex Mono',monospace;font-size:0.75rem;
-                    font-weight:600;cursor:pointer;letter-spacing:0.05em;"
-                    onmouseover="this.style.opacity='0.8'"
-                    onmouseout="this.style.opacity='1'">
-                    \u2398 Copier la r\u00e9ponse
-                </button>
             </div>
             """, unsafe_allow_html=True)
+            # Bouton copier natif Streamlit (les HTML buttons sont bloques par Streamlit)
+            col_copy, _ = st.columns([1, 3])
+            with col_copy:
+                st.code(reponse_text, language=None)
