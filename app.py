@@ -1,6 +1,5 @@
 """
 OGiRYS — Matching de Fonctionnalites
-Application Streamlit v2.0
 """
 
 import streamlit as st
@@ -19,16 +18,14 @@ st.set_page_config(
 )
 
 # ─────────────────────────────────────────────────────────────
-#  PARAMETRES FIXES (identiques au notebook)
-# ─────────────────────────────────────────────────────────────
+
 BI_NAME   = "sentence-transformers/paraphrase-multilingual-mpnet-base-v2"
 CE_NAME   = "cross-encoder/ms-marco-MiniLM-L-6-v2"
 THRESHOLD = 0.40
 TOP_K     = 5
 ALPHA     = 0.65
 
-# ─────────────────────────────────────────────────────────────
-#  STYLE  — palette violet / rose
+
 # ─────────────────────────────────────────────────────────────
 st.markdown("""
 <style>
@@ -119,7 +116,6 @@ button[data-testid="collapsedControl"] { display: none !important; }
     border-radius: 4px !important;
 }
 
-/* ── Inputs ── */
 .stSelectbox [data-baseweb="select"] > div {
     background: #ffffff !important; border-color: #e9d5ff !important; color: #1a0e2e !important;
 }
@@ -128,7 +124,6 @@ button[data-testid="collapsedControl"] { display: none !important; }
     color: #1a0e2e !important; font-family: 'IBM Plex Mono', monospace !important;
 }
 
-/* ── Section title ── */
 .section-title {
     font-family: 'IBM Plex Mono', monospace;
     font-size: 0.72rem; color: #7c3aed;
@@ -137,17 +132,14 @@ button[data-testid="collapsedControl"] { display: none !important; }
     padding-bottom: 8px; margin-bottom: 16px;
 }
 
-/* ── Alerts ── */
 .stAlert {
     border-radius: 8px !important;
     border-left: 3px solid #a855f7 !important;
     background: #faf5ff !important;
 }
 
-/* ── Hide streamlit menu ── */
 #MainMenu, footer { visibility: hidden; }
 
-/* ── Reponse modele ── */
 .model-response {
     background: #faf5ff;
     border: 1px solid #d8b4fe;
@@ -173,8 +165,7 @@ button[data-testid="collapsedControl"] { display: none !important; }
 """, unsafe_allow_html=True)
 
 
-# ─────────────────────────────────────────────────────────────
-#  MODEL LOADING
+
 # ─────────────────────────────────────────────────────────────
 @st.cache_resource(show_spinner=False)
 def load_models():
@@ -186,8 +177,7 @@ def load_models():
     return bi, ce
 
 
-# ─────────────────────────────────────────────────────────────
-#  CORE FUNCTIONS
+
 # ─────────────────────────────────────────────────────────────
 def load_kb(file) -> pd.DataFrame:
     df = pd.read_csv(file, encoding="latin1")
@@ -296,8 +286,7 @@ for key in ["kb_df", "excel_df", "result_df", "embeddings", "vectorizer", "tfidf
         st.session_state[key] = None
 
 
-# ─────────────────────────────────────────────────────────────
-#  HERO BANNER  — titre unique
+
 # ─────────────────────────────────────────────────────────────
 st.markdown("""
 <div class="hero-banner">
@@ -307,14 +296,11 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 
-# ─────────────────────────────────────────────────────────────
-#  TABS
+
 # ─────────────────────────────────────────────────────────────
 tab1, tab2, tab3 = st.tabs(["  Upload & Traitement  ", "  Resultats  ", "  Recherche manuelle  "])
 
 
-# ══════════════════════════════════════════════════════════════
-#  TAB 1 — UPLOAD & TRAITEMENT
 # ══════════════════════════════════════════════════════════════
 with tab1:
     col_l, col_r = st.columns(2, gap="large")
@@ -351,7 +337,6 @@ with tab1:
 
     st.divider()
 
-    # ── Chargement modeles ────────────────────────────────────
     st.markdown('<div class="section-title">Initialisation</div>', unsafe_allow_html=True)
     col_m1, col_m2 = st.columns([2, 1], gap="medium")
 
