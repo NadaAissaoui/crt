@@ -312,19 +312,53 @@ st.markdown("""
 # ─────────────────────────────────────────────────────────────
 #  TABS
 # ─────────────────────────────────────────────────────────────
-# Gestion de la navigation par query params
-_goto = st.query_params.get("tab", "0")
-if _goto == "2" and st.session_state.active_tab == 1:
-    st.session_state.active_tab = 0
-    st.query_params["tab"] = "0"
+# ─────────────────────────────────────────────────────────────
+#  NAVIGATION MANUELLE (remplace st.tabs pour controle complet)
+# ─────────────────────────────────────────────────────────────
+if "current_tab" not in st.session_state:
+    st.session_state.current_tab = 0
 
-tab1, tab2, tab3 = st.tabs(["  Upload & Traitement  ", "  Resultats  ", "  Recherche manuelle  "])
+# CSS pour les onglets custom
+st.markdown("""
+<style>
+.tab-bar { display: flex; gap: 4px; margin-bottom: 24px; border-bottom: 2px solid #e9d5ff; padding-bottom: 0; }
+.tab-btn {
+    background: transparent; border: none; border-bottom: 3px solid transparent;
+    padding: 10px 24px; font-family: 'IBM Plex Mono', monospace; font-size: 0.82rem;
+    font-weight: 600; color: #9d8ab5; cursor: pointer; margin-bottom: -2px;
+    transition: all 0.2s;
+}
+.tab-btn:hover { color: #7c3aed; }
+.tab-btn.active { color: #7c3aed; border-bottom: 3px solid #7c3aed; }
+</style>
+""", unsafe_allow_html=True)
 
+t_col1, t_col2, t_col3 = st.columns([1, 1, 1])
+with t_col1:
+    if st.button("Upload & Traitement", key="nav_tab0",
+                 type="primary" if st.session_state.current_tab == 0 else "secondary",
+                 use_container_width=True):
+        st.session_state.current_tab = 0
+        st.rerun()
+with t_col2:
+    if st.button("Resultats", key="nav_tab1",
+                 type="primary" if st.session_state.current_tab == 1 else "secondary",
+                 use_container_width=True):
+        st.session_state.current_tab = 1
+        st.rerun()
+with t_col3:
+    if st.button("Recherche manuelle", key="nav_tab2",
+                 type="primary" if st.session_state.current_tab == 2 else "secondary",
+                 use_container_width=True):
+        st.session_state.current_tab = 2
+        st.rerun()
+
+st.markdown("<hr style='margin-top:0;border-color:#e9d5ff;'>", unsafe_allow_html=True)
 
 # ══════════════════════════════════════════════════════════════
 #  TAB 1 — UPLOAD & TRAITEMENT
 # ══════════════════════════════════════════════════════════════
-with tab1:
+if st.session_state.current_tab == 0:
     col_l, col_r = st.columns(2, gap="large")
 
     with col_l:
@@ -473,10 +507,15 @@ with tab1:
                 st.error(f"Erreur : {e}")
 
 
-# ══════════════════════════════════════════════════════════════
-#  TAB 2 — RESULTATS
-# ══════════════════════════════════════════════════════════════
-with tab2:
+    # ══════════════════════════════════════════════════════════════
+    #  TAB 2 — RESULTATS
+    # ══════════════════════════════════════════════════════════════
+
+
+    # ══════════════════════════════════════════════════════════════
+    #  TAB 2 — RESULTATS
+    # ══════════════════════════════════════════════════════════════
+elif st.session_state.current_tab == 1:
     if st.session_state.result_df is None:
         st.markdown("""
         <div style="text-align:center;padding:60px 20px;color:#6d28d9;">
@@ -611,10 +650,15 @@ with tab2:
             )
 
 
-# ══════════════════════════════════════════════════════════════
-#  TAB 3 — RECHERCHE MANUELLE
-# ══════════════════════════════════════════════════════════════
-with tab3:
+    # ══════════════════════════════════════════════════════════════
+    #  TAB 3 — RECHERCHE MANUELLE
+    # ══════════════════════════════════════════════════════════════
+
+
+    # ══════════════════════════════════════════════════════════════
+    #  TAB 3 — RECHERCHE MANUELLE
+    # ══════════════════════════════════════════════════════════════
+elif st.session_state.current_tab == 2:
     st.markdown('<div class="section-title">Tester une fonctionnalite</div>', unsafe_allow_html=True)
 
     ready_search = (
