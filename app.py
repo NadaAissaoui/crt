@@ -1,6 +1,5 @@
 """
 OGiRYS — Matching de Fonctionnalites
-Application Streamlit v2.0
 """
 
 import streamlit as st
@@ -18,9 +17,6 @@ st.set_page_config(
     initial_sidebar_state="collapsed",
 )
 
-# ─────────────────────────────────────────────────────────────
-#  PARAMETRES FIXES (identiques au notebook)
-# ─────────────────────────────────────────────────────────────
 BI_NAME   = "sentence-transformers/paraphrase-multilingual-mpnet-base-v2"
 CE_NAME   = "cross-encoder/ms-marco-MiniLM-L-6-v2"
 THRESHOLD = 0.40
@@ -28,147 +24,104 @@ TOP_K     = 5
 ALPHA     = 0.65
 
 # ─────────────────────────────────────────────────────────────
-#  STYLE  — palette violet / rose
+#  STYLE  — charte #482882 / #E2D8F3 / #E8005F
 # ─────────────────────────────────────────────────────────────
 st.markdown("""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@300;400;600;700&display=swap');
 
 html, body, [class*="css"] { font-family: 'IBM Plex Sans', sans-serif; }
+.stApp { background: #F7F4FD; color: #1a0e2e; }
 
-.stApp { background: #faf8ff; color: #1a0e2e; }
-
-/* ── Cacher la sidebar completement ── */
 section[data-testid="stSidebar"]       { display: none !important; }
 button[data-testid="collapsedControl"] { display: none !important; }
+#MainMenu, footer { visibility: hidden; }
 
-/* ── Hero ── */
 .hero-banner {
-    background: linear-gradient(135deg, #f3e8ff 0%, #fce7f3 50%, #ede9fe 100%);
-    border: 1px solid #d8b4fe;
-    border-radius: 12px;
-    padding: 32px 40px;
-    margin-bottom: 28px;
-    position: relative;
-    overflow: hidden;
+    background: linear-gradient(135deg, #482882 0%, #6b3fa0 60%, #E8005F 100%);
+    border-radius: 14px; padding: 36px 44px;
+    margin-bottom: 28px; position: relative; overflow: hidden;
 }
 .hero-banner::before {
-    content: '';
-    position: absolute;
-    top: -50%; right: -10%;
-    width: 400px; height: 400px;
-    background: radial-gradient(circle, rgba(168,85,247,0.15) 0%, transparent 70%);
+    content: ''; position: absolute; top: -40%; right: -8%;
+    width: 380px; height: 380px;
+    background: radial-gradient(circle, rgba(226,216,243,0.18) 0%, transparent 70%);
     pointer-events: none;
 }
 .hero-title {
     font-family: 'IBM Plex Mono', monospace;
     font-size: 2.2rem; font-weight: 600;
-    color: #7c3aed; margin: 0; letter-spacing: -1px;
+    color: #E2D8F3; margin: 0; letter-spacing: -1px;
 }
-.hero-sub  { font-size: 0.95rem; color: #9d8ab5; margin-top: 6px; font-weight: 300; }
+.hero-sub { font-size: 0.82rem; color: rgba(226,216,243,0.75); margin-top: 8px; font-weight: 300; }
 
-/* ── Stats ── */
 .stats-row { display: flex; gap: 16px; margin-bottom: 24px; }
 .stat-card {
-    flex: 1; background: #ffffff;
-    border: 1px solid #e9d5ff; border-radius: 10px;
-    padding: 18px 20px; text-align: center;
-    transition: border-color 0.2s;
+    flex: 1; background: #ffffff; border: 1px solid #E2D8F3;
+    border-radius: 10px; padding: 18px 20px; text-align: center; transition: border-color 0.2s;
 }
-.stat-card:hover { border-color: #a855f7; }
-.stat-number {
-    font-family: 'IBM Plex Mono', monospace;
-    font-size: 2rem; font-weight: 600; line-height: 1;
-}
-.stat-label { font-size: 0.75rem; color: #6d28d9; margin-top: 4px; text-transform: uppercase; letter-spacing: 0.05em; }
+.stat-card:hover { border-color: #482882; }
+.stat-number { font-family: 'IBM Plex Mono', monospace; font-size: 2rem; font-weight: 600; line-height: 1; }
+.stat-label { font-size: 0.75rem; color: #482882; margin-top: 4px; text-transform: uppercase; letter-spacing: 0.05em; }
 .stat-total .stat-number { color: #1a0e2e; }
-.stat-oui   .stat-number { color: #7c3aed; }
-.stat-non   .stat-number { color: #db2777; }
-.stat-score .stat-number { color: #9333ea; }
+.stat-oui   .stat-number { color: #482882; }
+.stat-non   .stat-number { color: #E8005F; }
 
-/* ── Buttons ── */
 .stButton > button {
-    background: linear-gradient(135deg, #7c3aed, #c026d3) !important;
-    color: #ffffff !important;
-    border: 1px solid #a855f7 !important; border-radius: 8px !important;
+    background: linear-gradient(135deg, #482882, #E8005F) !important;
+    color: #ffffff !important; border: none !important; border-radius: 8px !important;
     font-family: 'IBM Plex Mono', monospace !important;
     font-size: 0.85rem !important; font-weight: 600 !important;
     padding: 10px 24px !important; width: 100% !important;
 }
-.stButton > button:hover {
-    background: linear-gradient(135deg, #8b5cf6, #d946ef) !important;
-    border-color: #c084fc !important;
-    box-shadow: 0 4px 16px rgba(192,132,252,0.35) !important;
+.stButton > button:hover { opacity: 0.88 !important; box-shadow: 0 4px 18px rgba(72,40,130,0.3) !important; }
+.stButton > button[kind="secondary"] {
+    background: #ffffff !important; color: #482882 !important;
+    border: 2px solid #E2D8F3 !important;
+}
+.stButton > button[kind="secondary"]:hover {
+    border-color: #482882 !important; background: #F7F4FD !important;
+    opacity: 1 !important; box-shadow: none !important;
 }
 .stDownloadButton > button {
-    background: linear-gradient(135deg, #be185d, #9333ea) !important;
-    color: #ffffff !important;
-    border: 1px solid #ec4899 !important; border-radius: 8px !important;
+    background: linear-gradient(135deg, #482882, #E8005F) !important;
+    color: #ffffff !important; border: none !important; border-radius: 8px !important;
     font-family: 'IBM Plex Mono', monospace !important;
-    font-size: 0.85rem !important; font-weight: 600 !important;
-    width: 100% !important;
+    font-size: 0.85rem !important; font-weight: 600 !important; width: 100% !important;
 }
-.stDownloadButton > button:hover {
-    background: linear-gradient(135deg, #db2777, #a855f7) !important;
-    box-shadow: 0 4px 16px rgba(236,72,153,0.35) !important;
-}
+.stDownloadButton > button:hover { opacity: 0.88 !important; }
 
-/* ── Progress ── */
 .stProgress > div > div {
-    background: linear-gradient(90deg, #7c3aed, #ec4899) !important;
-    border-radius: 4px !important;
+    background: linear-gradient(90deg, #482882, #E8005F) !important; border-radius: 4px !important;
 }
-
-/* ── Inputs ── */
 .stSelectbox [data-baseweb="select"] > div {
-    background: #ffffff !important; border-color: #e9d5ff !important; color: #1a0e2e !important;
+    background: #ffffff !important; border-color: #E2D8F3 !important; color: #1a0e2e !important;
 }
 .stTextInput input {
-    background: #ffffff !important; border-color: #e9d5ff !important;
+    background: #ffffff !important; border-color: #E2D8F3 !important;
     color: #1a0e2e !important; font-family: 'IBM Plex Mono', monospace !important;
 }
-
-/* ── Section title ── */
 .section-title {
-    font-family: 'IBM Plex Mono', monospace;
-    font-size: 0.72rem; color: #7c3aed;
+    font-family: 'IBM Plex Mono', monospace; font-size: 0.72rem; color: #482882;
     text-transform: uppercase; letter-spacing: 0.12em;
-    border-bottom: 1px solid #e9d5ff;
-    padding-bottom: 8px; margin-bottom: 16px;
+    border-bottom: 2px solid #E2D8F3; padding-bottom: 8px; margin-bottom: 16px;
 }
+.stAlert { border-radius: 8px !important; border-left: 3px solid #482882 !important; background: #F7F4FD !important; }
 
-/* ── Alerts ── */
-.stAlert {
-    border-radius: 8px !important;
-    border-left: 3px solid #a855f7 !important;
-    background: #faf5ff !important;
+.alert-box {
+    background: #FFF0F5; border: 1px solid #E8005F;
+    border-left: 4px solid #E8005F; border-radius: 8px;
+    padding: 14px 18px; font-size: 0.85rem; color: #4a0020; margin-top: 8px;
 }
-
-/* ── Hide streamlit menu ── */
-#MainMenu, footer { visibility: hidden; }
-
-/* ── Reponse modele ── */
 .model-response {
-    background: #faf5ff;
-    border: 1px solid #d8b4fe;
-    border-left: 4px solid #a855f7;
-    border-radius: 12px;
-    padding: 24px 28px;
-    margin-top: 16px;
+    background: #ffffff; border: 1px solid #E2D8F3;
+    border-left: 4px solid #482882; border-radius: 12px; padding: 24px 28px; margin-top: 16px;
 }
 .model-response-title {
-    font-family: 'IBM Plex Mono', monospace;
-    font-size: 0.72rem;
-    color: #7c3aed;
-    text-transform: uppercase;
-    letter-spacing: 0.12em;
-    margin-bottom: 12px;
+    font-family: 'IBM Plex Mono', monospace; font-size: 0.72rem; color: #482882;
+    text-transform: uppercase; letter-spacing: 0.12em; margin-bottom: 12px;
 }
-.model-response-text {
-    font-size: 0.95rem;
-    color: #1a0e2e;
-    line-height: 1.7;
-}
+.model-response-text { font-size: 0.95rem; color: #1a0e2e; line-height: 1.7; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -195,6 +148,15 @@ def load_kb(file) -> pd.DataFrame:
         if col in df.columns:
             df[col] = df[col].fillna("").astype(str).str.lower().str.strip()
     return df
+
+
+def check_cols(df):
+    cols = [c.strip() for c in df.columns]
+    has_ctx  = any("contexte" in c.lower() and "usage" in c.lower() for c in cols)
+    has_fonc = any("fonctionnalit" in c.lower() for c in cols)
+    has_etat = any("etat" in c.lower() or "\u00e9tat" in c.lower() for c in cols)
+    has_comm = any("commentaire" in c.lower() for c in cols)
+    return has_ctx, has_fonc, has_etat, has_comm, cols
 
 
 def build_index(df, bi_model):
@@ -227,14 +189,8 @@ def hybrid_search(question, bi_model, ce_model, embeddings, vectorizer, tfidf_ma
     top_idx    = hybrid.argsort()[-TOP_K:][::-1]
 
     if hybrid[top_idx[0]] < THRESHOLD:
-        return {
-            "etat": "non",
-            "commentaire": "Aucune correspondance trouvee.",
-            "score": float(hybrid[top_idx[0]]),
-            "ce_score": None,
-            "mode": "aucun",
-            "match": "",
-        }
+        return {"etat": "non", "commentaire": "Aucune correspondance trouvee.",
+                "score": float(hybrid[top_idx[0]]), "ce_score": None, "mode": "aucun", "match": ""}
 
     fonc_col   = next((c for c in df.columns if "fonctionnalit" in c.lower()), df.columns[0])
     candidates = [(i, df.iloc[i][fonc_col], hybrid[i]) for i in top_idx]
@@ -256,7 +212,7 @@ def hybrid_search(question, bi_model, ce_model, embeddings, vectorizer, tfidf_ma
 def process_dataframe(excel_df, bi_model, ce_model, embeddings, vectorizer, tfidf_mat, kb_df, progress_cb):
     fonc_col = next((c for c in excel_df.columns if "fonctionnalit" in c.lower()), None)
     if not fonc_col:
-        st.error("Colonne 'Fonctionnalite' introuvable dans le fichier Excel.")
+        st.error("Colonne 'Fonctionnalit\u00e9' introuvable dans le fichier Excel.")
         return None
     for col in ["Etat", "Commentaire", "Score_Hybride", "Score_CE", "Match_KB", "Mode"]:
         if col not in excel_df.columns:
@@ -294,165 +250,136 @@ def df_to_excel_bytes(df: pd.DataFrame) -> bytes:
 for key in ["kb_df", "excel_df", "result_df", "embeddings", "vectorizer", "tfidf_mat"]:
     if key not in st.session_state:
         st.session_state[key] = None
-if "active_tab" not in st.session_state:
-    st.session_state.active_tab = 0
+if "current_tab" not in st.session_state:
+    st.session_state.current_tab = 0
 
 
 # ─────────────────────────────────────────────────────────────
-#  HERO BANNER  — titre unique
+#  HERO BANNER
 # ─────────────────────────────────────────────────────────────
 st.markdown("""
 <div class="hero-banner">
     <div class="hero-title">AO Generator - OGIRYS</div>
-    <div style="font-family:'IBM Plex Sans',sans-serif;font-size:0.78rem;color:#9333ea;margin-top:8px;font-weight:300;letter-spacing:0.04em;">Nada's Project — Version 2.0</div>
+    <div class="hero-sub">Nada's Project \u2014 Version 2.0</div>
 </div>
 """, unsafe_allow_html=True)
 
 
 # ─────────────────────────────────────────────────────────────
-#  TABS
+#  NAVIGATION (boutons = onglets controlables)
 # ─────────────────────────────────────────────────────────────
-# ─────────────────────────────────────────────────────────────
-#  NAVIGATION MANUELLE (remplace st.tabs pour controle complet)
-# ─────────────────────────────────────────────────────────────
-if "current_tab" not in st.session_state:
-    st.session_state.current_tab = 0
-
-# CSS pour les onglets custom
-st.markdown("""
-<style>
-.tab-bar { display: flex; gap: 4px; margin-bottom: 24px; border-bottom: 2px solid #e9d5ff; padding-bottom: 0; }
-.tab-btn {
-    background: transparent; border: none; border-bottom: 3px solid transparent;
-    padding: 10px 24px; font-family: 'IBM Plex Mono', monospace; font-size: 0.82rem;
-    font-weight: 600; color: #9d8ab5; cursor: pointer; margin-bottom: -2px;
-    transition: all 0.2s;
-}
-.tab-btn:hover { color: #7c3aed; }
-.tab-btn.active { color: #7c3aed; border-bottom: 3px solid #7c3aed; }
-</style>
-""", unsafe_allow_html=True)
-
-t_col1, t_col2, t_col3 = st.columns([1, 1, 1])
-with t_col1:
-    if st.button("Upload & Traitement", key="nav_tab0",
+n1, n2, n3 = st.columns(3)
+with n1:
+    if st.button("📁  Upload & Traitement", key="nav0",
                  type="primary" if st.session_state.current_tab == 0 else "secondary",
                  use_container_width=True):
         st.session_state.current_tab = 0
         st.rerun()
-with t_col2:
-    if st.button("Resultats", key="nav_tab1",
+with n2:
+    if st.button("📊  R\u00e9sultats", key="nav1",
                  type="primary" if st.session_state.current_tab == 1 else "secondary",
                  use_container_width=True):
         st.session_state.current_tab = 1
         st.rerun()
-with t_col3:
-    if st.button("Recherche manuelle", key="nav_tab2",
+with n3:
+    if st.button("🔍  Recherche manuelle", key="nav2",
                  type="primary" if st.session_state.current_tab == 2 else "secondary",
                  use_container_width=True):
         st.session_state.current_tab = 2
         st.rerun()
 
-st.markdown("<hr style='margin-top:0;border-color:#e9d5ff;'>", unsafe_allow_html=True)
+st.markdown("<hr style='margin:0 0 24px 0;border:none;border-top:2px solid #E2D8F3;'>", unsafe_allow_html=True)
+
 
 # ══════════════════════════════════════════════════════════════
-#  TAB 1 — UPLOAD & TRAITEMENT
+#  ONGLET 1 — UPLOAD & TRAITEMENT
 # ══════════════════════════════════════════════════════════════
 if st.session_state.current_tab == 0:
+
     col_l, col_r = st.columns(2, gap="large")
 
+    # ── KB (draft.csv) ────────────────────────────────────────
     with col_l:
         st.markdown('<div class="section-title">Base de connaissances (draft.csv)</div>', unsafe_allow_html=True)
-        kb_file = st.file_uploader(
-            "draft.csv", type=["csv"], key="kb_upload",
-            label_visibility="collapsed",
-        )
+        kb_file = st.file_uploader("draft.csv", type=["csv"], key="kb_upload", label_visibility="collapsed")
         if kb_file:
             try:
                 import pandas as _pd_raw
                 _df_raw = _pd_raw.read_csv(kb_file, encoding="latin1", nrows=0)
                 kb_file.seek(0)
-                cols = [c.strip() for c in _df_raw.columns]
-                has_ctx  = any("contexte" in c.lower() and "usage" in c.lower() for c in cols)
-                has_fonc = any("fonctionnalit" in c.lower() for c in cols)
-                has_etat = any("etat" in c.lower() or "état" in c.lower() for c in cols)
-                has_comm = any("commentaire" in c.lower() for c in cols)
+                has_ctx, has_fonc, has_etat, has_comm, cols = check_cols(_df_raw)
                 if not has_ctx or not has_fonc:
                     manquantes = []
                     if not has_ctx:  manquantes.append("Contexte d'usage")
-                    if not has_fonc: manquantes.append("Fonctionnalité")
+                    if not has_fonc: manquantes.append("Fonctionnalit\u00e9")
                     st.session_state.kb_df = None
-                    st.error(f"⚠️ Colonnes obligatoires introuvables : **{', '.join(manquantes)}**")
+                    st.error(f"\u26a0\ufe0f Colonnes obligatoires manquantes : **{', '.join(manquantes)}**")
                     st.markdown(
-                        "<div style='background:#fdf4ff;border:1px solid #d8b4fe;border-left:4px solid #9333ea;"
-                        "border-radius:8px;padding:14px 18px;font-size:0.85rem;color:#3b0764;margin-top:8px;'>"
-                        "<b>📋 Colonnes attendues dans draft.csv :</b><br><br>"
-                        "&nbsp;&nbsp;✅ <b>Contexte d'usage</b> — obligatoire<br>"
-                        "&nbsp;&nbsp;✅ <b>Fonctionnalité</b> — obligatoire<br>"
-                        "&nbsp;&nbsp;⚪ <b>Etat</b> — optionnelle (créée si absente)<br>"
-                        "&nbsp;&nbsp;⚪ <b>Commentaire</b> — optionnelle (créée si absente)<br><br>"
-                        f"<b>Colonnes détectées : {', '.join(cols)}</b></div>",
+                        f"<div class='alert-box'><b>\U0001f4cb Colonnes attendues :</b><br><br>"
+                        f"&nbsp;&nbsp;\u2705 <b>Contexte d'usage</b> \u2014 obligatoire<br>"
+                        f"&nbsp;&nbsp;\u2705 <b>Fonctionnalit\u00e9</b> \u2014 obligatoire<br>"
+                        f"&nbsp;&nbsp;\u26aa <b>Etat</b> \u2014 optionnelle<br>"
+                        f"&nbsp;&nbsp;\u26aa <b>Commentaire</b> \u2014 optionnelle<br><br>"
+                        f"<b>D\u00e9tect\u00e9es : {', '.join(cols)}</b></div>",
                         unsafe_allow_html=True
                     )
                 else:
                     st.session_state.kb_df = load_kb(kb_file)
                     if not has_etat:
                         st.session_state.kb_df["Etat"] = ""
-                        st.warning("Colonne Etat absente — créée automatiquement.")
+                        st.warning("Colonne **Etat** absente \u2014 cr\u00e9\u00e9e automatiquement.")
                     if not has_comm:
                         st.session_state.kb_df["Commentaire"] = ""
-                        st.warning("Colonne Commentaire absente — créée automatiquement.")
-                    st.success(f"✅ {len(st.session_state.kb_df)} entrées chargées")
-                    with st.expander("Apercu KB"):
+                        st.warning("Colonne **Commentaire** absente \u2014 cr\u00e9\u00e9e automatiquement.")
+                    st.success(f"\u2705 {len(st.session_state.kb_df)} entr\u00e9es charg\u00e9es")
+                    with st.expander("Aper\u00e7u KB"):
                         st.dataframe(st.session_state.kb_df.head(5), use_container_width=True)
             except Exception as e:
                 st.error(f"Erreur : {e}")
 
+    # ── Fichier Excel ─────────────────────────────────────────
     with col_r:
-        st.markdown('<div class="section-title">Fichier à traiter (.xlsx)</div>', unsafe_allow_html=True)
-        xl_file = st.file_uploader(
-            "fichier.xlsx", type=["xlsx", "xls"], key="xl_upload",
-            label_visibility="collapsed",
-        )
+        st.markdown('<div class="section-title">Fichier \u00e0 traiter (.xlsx)</div>', unsafe_allow_html=True)
+        xl_file = st.file_uploader("fichier.xlsx", type=["xlsx", "xls"], key="xl_upload", label_visibility="collapsed")
         if xl_file:
             try:
                 _df_xl = pd.read_excel(xl_file)
-                cols_xl = [c.strip() for c in _df_xl.columns]
-                has_fonc_xl = any("fonctionnalit" in c.lower() for c in cols_xl)
-                if not has_fonc_xl:
+                has_ctx_xl, has_fonc_xl, has_etat_xl, has_comm_xl, cols_xl = check_cols(_df_xl)
+                if not has_ctx_xl or not has_fonc_xl:
+                    manquantes_xl = []
+                    if not has_ctx_xl:  manquantes_xl.append("Contexte d'usage")
+                    if not has_fonc_xl: manquantes_xl.append("Fonctionnalit\u00e9")
                     st.session_state.excel_df = None
-                    st.error("⚠️ Colonne **Fonctionnalité** introuvable dans le fichier Excel.")
+                    st.error(f"\u26a0\ufe0f Colonnes obligatoires manquantes : **{', '.join(manquantes_xl)}**")
                     st.markdown(
-                        "<div style='background:#fdf4ff;border:1px solid #d8b4fe;border-left:4px solid #9333ea;"
-                        "border-radius:8px;padding:14px 18px;font-size:0.85rem;color:#3b0764;margin-top:8px;'>"
-                        "<b>📋 Le fichier Excel doit contenir une colonne dont le nom contient 'Fonctionnalité'.</b><br>"
-                        f"Colonnes détectées : {', '.join(cols_xl)}<br><br>"
-                        "Vérifiez les noms de colonnes avant de relancer.</div>",
+                        f"<div class='alert-box'><b>\U0001f4cb V\u00e9rifiez les noms de colonnes :</b><br><br>"
+                        f"&nbsp;&nbsp;\u2705 <b>Contexte d'usage</b> \u2014 obligatoire<br>"
+                        f"&nbsp;&nbsp;\u2705 <b>Fonctionnalit\u00e9</b> \u2014 obligatoire<br><br>"
+                        f"<b>D\u00e9tect\u00e9es : {', '.join(cols_xl)}</b></div>",
                         unsafe_allow_html=True
                     )
                 else:
                     st.session_state.excel_df = _df_xl
-                    st.success(f"✅ {len(st.session_state.excel_df)} lignes détectées")
-                    with st.expander("Apercu Excel"):
+                    st.success(f"\u2705 {len(st.session_state.excel_df)} lignes d\u00e9tect\u00e9es")
+                    with st.expander("Aper\u00e7u Excel"):
                         st.dataframe(st.session_state.excel_df.head(5), use_container_width=True)
             except Exception as e:
                 st.error(f"Erreur : {e}")
 
     st.divider()
 
-    # ── Chargement modeles + Indexation (bouton unique) ─────────
+    # ── Chargement modeles + Indexation ──────────────────────
     st.markdown('<div class="section-title">Initialisation</div>', unsafe_allow_html=True)
-
     if st.session_state.kb_df is not None:
-        if st.button("Charger les modèles & Indexer la KB", key="load_and_index_btn"):
-            with st.spinner("Chargement des modèles et calcul des embeddings..."):
+        if st.button("Charger les mod\u00e8les & Indexer la KB", key="load_and_index_btn"):
+            with st.spinner("Chargement des mod\u00e8les et calcul des embeddings..."):
                 try:
                     bi, ce = load_models()
                     corpus, vec, tmat, emb = build_index(st.session_state.kb_df, bi)
                     st.session_state.vectorizer = vec
                     st.session_state.tfidf_mat  = tmat
                     st.session_state.embeddings = emb
-                    st.success(f"Modèles chargés et index construit ({emb.shape[0]} entrées)")
+                    st.success(f"\u2705 Mod\u00e8les charg\u00e9s \u2014 index construit ({emb.shape[0]} entr\u00e9es)")
                 except Exception as e:
                     st.error(f"Erreur : {e}")
     else:
@@ -472,11 +399,11 @@ if st.session_state.current_tab == 0:
         missing = []
         if st.session_state.kb_df is None:      missing.append("KB (draft.csv)")
         if st.session_state.excel_df is None:   missing.append("Fichier Excel")
-        if st.session_state.embeddings is None: missing.append("Index KB (cliquez sur Charger & Indexer)")
+        if st.session_state.embeddings is None: missing.append("Index KB")
         st.info(f"En attente : {' | '.join(missing)}")
 
     if ready:
-        if st.button("Lancer le matching IA", key="run"):
+        if st.button("\U0001f680  Lancer le matching IA", key="run"):
             progress_bar = st.progress(0, text="Initialisation...")
 
             def update_progress(pct):
@@ -496,32 +423,28 @@ if st.session_state.current_tab == 0:
                 )
                 if result is not None:
                     st.session_state.result_df = result
-                    st.session_state.active_tab = 1
-                    progress_bar.progress(1.0, text="Terminé !")
+                    progress_bar.progress(1.0, text="Termin\u00e9 !")
                     oui = (result["Etat"] == "oui").sum()
                     non = (result["Etat"] == "non").sum()
-                    st.success(f"✅ Matching terminé ! {oui} présentes / {non} absentes")
-                    st.query_params["tab"] = "2"
-                    st.rerun()
+                    st.success(f"\u2705 Matching termin\u00e9 ! {oui} pr\u00e9sentes / {non} absentes")
+                    if st.button("\U0001f4ca  Voir les r\u00e9sultats  \u2192", key="goto_results"):
+                        st.session_state.current_tab = 1
+                        st.rerun()
             except Exception as e:
                 st.error(f"Erreur : {e}")
 
 
-    # ══════════════════════════════════════════════════════════════
-    #  TAB 2 — RESULTATS
-    # ══════════════════════════════════════════════════════════════
-
-
-    # ══════════════════════════════════════════════════════════════
-    #  TAB 2 — RESULTATS
-    # ══════════════════════════════════════════════════════════════
+# ══════════════════════════════════════════════════════════════
+#  ONGLET 2 — RESULTATS
+# ══════════════════════════════════════════════════════════════
 elif st.session_state.current_tab == 1:
+
     if st.session_state.result_df is None:
         st.markdown("""
-        <div style="text-align:center;padding:60px 20px;color:#6d28d9;">
+        <div style="text-align:center;padding:60px 20px;color:#482882;">
             <div style="font-size:3rem;margin-bottom:16px;">📊</div>
             <div style="font-family:'IBM Plex Mono',monospace;font-size:1rem;">
-                Aucun resultat disponible<br>
+                Aucun r\u00e9sultat disponible<br>
                 <span style="font-size:0.8rem;opacity:.6;">
                 Lancez le traitement dans l'onglet Upload &amp; Traitement</span>
             </div>
@@ -529,14 +452,11 @@ elif st.session_state.current_tab == 1:
         """, unsafe_allow_html=True)
     else:
         result_df = st.session_state.result_df
-        total  = len(result_df)
-        oui    = int((result_df["Etat"] == "oui").sum())
-        non    = int((result_df["Etat"] == "non").sum())
-        ia_df  = result_df[result_df["Mode"] == "hybride+CE"]
-        avg_ce = ia_df["Score_CE"].mean() if len(ia_df) > 0 else 0
-        avg_ce = 0 if avg_ce != avg_ce else avg_ce
+        total = len(result_df)
+        oui   = int((result_df["Etat"] == "oui").sum())
+        non   = int((result_df["Etat"] == "non").sum())
 
-        # ── Stat cards ────────────────────────────────────────
+        # ── Stats (3 cartes, sans score) ─────────────────────
         st.markdown(f"""
         <div class="stats-row">
             <div class="stat-card stat-total">
@@ -545,121 +465,80 @@ elif st.session_state.current_tab == 1:
             </div>
             <div class="stat-card stat-oui">
                 <div class="stat-number">{oui}</div>
-                <div class="stat-label">Presentes</div>
+                <div class="stat-label">Pr\u00e9sentes</div>
             </div>
             <div class="stat-card stat-non">
                 <div class="stat-number">{non}</div>
                 <div class="stat-label">Absentes</div>
-            </div>
-            <div class="stat-card stat-score">
-                <div class="stat-number">{avg_ce:.2f}</div>
-                <div class="stat-label">Score CE moyen</div>
             </div>
         </div>
         """, unsafe_allow_html=True)
 
         # ── Filtres ───────────────────────────────────────────
         st.markdown('<div class="section-title">Filtres</div>', unsafe_allow_html=True)
-        f1, f2, f3, f4 = st.columns([3, 2, 2, 2], gap="small")
+        f1, f2, f3 = st.columns([3, 2, 2], gap="small")
+        fonc_col = next((c for c in result_df.columns if "fonctionnalit" in c.lower()), None)
 
         with f1:
-            search_q = st.text_input("Rechercher", placeholder="mot-cle...", label_visibility="collapsed")
+            search_q = st.text_input("Rechercher", placeholder="mot-cl\u00e9...", label_visibility="collapsed")
         with f2:
             etat_filter = st.selectbox("Etat", ["Tous", "oui", "non"], label_visibility="collapsed")
         with f3:
-            score_min = st.slider("Score CE min", 0.0, 1.0, 0.0, 0.05, label_visibility="collapsed")
-        with f4:
-            sort_by = st.selectbox(
-                "Trier par",
-                ["Score_CE desc", "Score_CE asc", "Score_Hybride desc", "A-Z"],
-                label_visibility="collapsed",
-            )
+            sort_by = st.selectbox("Trier par", ["A-Z", "Z-A", "Etat"], label_visibility="collapsed")
 
         # ── Filtrage ──────────────────────────────────────────
-        view     = result_df.copy()
-        fonc_col = next((c for c in view.columns if "fonctionnalit" in c.lower()), None)
+        view = result_df.copy()
 
         if search_q and fonc_col:
-            mask = view[fonc_col].str.lower().str.contains(search_q.lower(), na=False)
-            if "Match_KB" in view.columns:
-                mask |= view["Match_KB"].str.lower().str.contains(search_q.lower(), na=False)
-            view = view[mask]
-
+            view = view[view[fonc_col].str.lower().str.contains(search_q.lower(), na=False)]
         if etat_filter != "Tous":
             view = view[view["Etat"] == etat_filter]
 
-        if "Score_CE" in view.columns:
-            view["Score_CE"] = pd.to_numeric(view["Score_CE"], errors="coerce")
-            view = view[view["Score_CE"].fillna(0) >= score_min]
-
-        for num_col in ["Score_CE", "Score_Hybride"]:
-            if num_col in view.columns:
-                view[num_col] = pd.to_numeric(view[num_col], errors="coerce")
-
-        sort_map = {
-            "Score_CE desc":      ("Score_CE", False),
-            "Score_CE asc":       ("Score_CE", True),
-            "Score_Hybride desc": ("Score_Hybride", False),
-            "A-Z":                (fonc_col, True),
-        }
+        sort_map = {"A-Z": (fonc_col, True), "Z-A": (fonc_col, False), "Etat": ("Etat", True)}
         sc, asc_val = sort_map[sort_by]
         if sc and sc in view.columns:
             view = view.sort_values(sc, ascending=asc_val)
 
-        st.caption(f"{len(view)} ligne(s) affichee(s) sur {total}")
+        st.caption(f"{len(view)} ligne(s) affich\u00e9e(s) sur {total}")
 
-        # ── Tableau ───────────────────────────────────────────
-        display_cols = [c for c in
-            [fonc_col, "Etat", "Score_Hybride", "Score_CE", "Match_KB", "Commentaire", "Mode"]
-            if c and c in view.columns]
+        # ── Tableau — uniquement Fonctionnalité, Etat, Commentaire
+        display_cols = [c for c in [fonc_col, "Etat", "Commentaire"] if c and c in view.columns]
 
         st.dataframe(
             view[display_cols].reset_index(drop=True),
             use_container_width=True,
-            height=480,
+            height=500,
             column_config={
-                "Score_CE": st.column_config.ProgressColumn(
-                    "Score CE", min_value=0, max_value=1, format="%.3f", width="medium"),
-                "Score_Hybride": st.column_config.ProgressColumn(
-                    "Score Hybride", min_value=0, max_value=1, format="%.3f", width="medium"),
+                "Etat":        st.column_config.TextColumn("Etat", width="small"),
                 "Commentaire": st.column_config.TextColumn("Commentaire", width="large"),
-                "Match_KB":    st.column_config.TextColumn("Match KB", width="medium"),
             },
         )
 
         # ── Download ──────────────────────────────────────────
-        cols_to_drop = ["Score_Hybride", "Score_CE", "Match_KB", "Mode"]
-        result_dl = result_df.drop(columns=[c for c in cols_to_drop if c in result_df.columns])
-        view_dl   = view[display_cols].drop(columns=[c for c in cols_to_drop if c in view[display_cols].columns])
-
         st.divider()
         dl1, dl2, _ = st.columns([2, 2, 3], gap="medium")
         with dl1:
             st.download_button(
-                label="Telecharger Excel complet",
-                data=df_to_excel_bytes(result_dl),
+                label="\u2b07  T\u00e9l\u00e9charger Excel complet",
+                data=df_to_excel_bytes(result_df[display_cols]),
                 file_name="ogirys_resultats.xlsx",
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             )
         with dl2:
             st.download_button(
-                label="Telecharger vue filtree",
-                data=df_to_excel_bytes(view_dl),
+                label="\u2b07  T\u00e9l\u00e9charger vue filtr\u00e9e",
+                data=df_to_excel_bytes(view[display_cols]),
                 file_name="ogirys_resultats_filtres.xlsx",
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             )
 
 
-    # ══════════════════════════════════════════════════════════════
-    #  TAB 3 — RECHERCHE MANUELLE
-    # ══════════════════════════════════════════════════════════════
-
-
-    # ══════════════════════════════════════════════════════════════
-    #  TAB 3 — RECHERCHE MANUELLE
-    # ══════════════════════════════════════════════════════════════
+# ══════════════════════════════════════════════════════════════
+#  ONGLET 3 — RECHERCHE MANUELLE
+# ══════════════════════════════════════════════════════════════
 elif st.session_state.current_tab == 2:
-    st.markdown('<div class="section-title">Tester une fonctionnalite</div>', unsafe_allow_html=True)
+
+    st.markdown('<div class="section-title">Tester une fonctionnalit\u00e9</div>', unsafe_allow_html=True)
 
     ready_search = (
         st.session_state.embeddings is not None and
@@ -667,13 +546,13 @@ elif st.session_state.current_tab == 2:
     )
 
     if not ready_search:
-        st.info("Chargez les modeles et indexez la KB dans l'onglet Upload & Traitement.")
+        st.info("Chargez les mod\u00e8les et indexez la KB dans l'onglet Upload & Traitement.")
     else:
         query = st.text_input(
-            "Fonctionnalite a rechercher",
+            "Fonctionnalit\u00e9 \u00e0 rechercher",
             placeholder="ex: gestion des droits utilisateurs...",
         )
-        if st.button("Rechercher", key="manual_search") and query:
+        if st.button("\U0001f50d  Rechercher", key="manual_search") and query:
             with st.spinner("Recherche en cours..."):
                 bi, ce = load_models()
                 r = hybrid_search(
@@ -684,32 +563,31 @@ elif st.session_state.current_tab == 2:
                     st.session_state.kb_df,
                 )
 
-            is_found   = r["etat"] == "oui"
-            label      = "Presente dans OGiRYS." if is_found else "Absente de OGiRYS."
+            is_found    = r["etat"] == "oui"
+            label       = "Pr\u00e9sente dans OGiRYS." if is_found else "Absente de OGiRYS."
             commentaire = r["commentaire"] if r["commentaire"] else label
-            match_text  = r.get("match", "")
 
             reponse_parts = [label]
             if commentaire and commentaire not in (label, "Pas presente dans OGiRYS."):
                 reponse_parts.append(commentaire)
-            elif r["etat"] == "non":
-                reponse_parts.append("Aucune correspondance suffisante trouvee dans la base de connaissances.")
+            elif not is_found:
+                reponse_parts.append("Aucune correspondance suffisante trouv\u00e9e dans la base de connaissances.")
 
             reponse_text = "\n".join(reponse_parts)
             reponse_html = "<br>".join(reponse_parts)
 
             st.markdown(f"""
             <div class="model-response">
-                <div class="model-response-title">La réponse du modèle :</div>
-                <div class="model-response-text" id="reponse-text">{reponse_html}</div>
+                <div class="model-response-title">La r\u00e9ponse du mod\u00e8le :</div>
+                <div class="model-response-text">{reponse_html}</div>
                 <button onclick="navigator.clipboard.writeText(`{reponse_text}`)"
-                    style="margin-top:16px;background:linear-gradient(135deg,#7c3aed,#c026d3);
+                    style="margin-top:16px;background:linear-gradient(135deg,#482882,#E8005F);
                     color:#fff;border:none;border-radius:6px;padding:7px 18px;
                     font-family:'IBM Plex Mono',monospace;font-size:0.75rem;
                     font-weight:600;cursor:pointer;letter-spacing:0.05em;"
-                    onmouseover="this.style.opacity='0.85'"
+                    onmouseover="this.style.opacity='0.8'"
                     onmouseout="this.style.opacity='1'">
-                    ⎘ Copier la réponse
+                    \u2398 Copier la r\u00e9ponse
                 </button>
             </div>
             """, unsafe_allow_html=True)
