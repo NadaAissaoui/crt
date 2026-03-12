@@ -349,48 +349,48 @@ with tab1:
         )
         if kb_file:
             try:
-                st.session_state.kb_df = load_kb(kb_file)
-                cols = [c.strip() for c in st.session_state.kb_df.columns]
+                # Lire d'abord brut pour verifier les colonnes AVANT load_kb
+                import pandas as _pd_raw
+                _df_raw = _pd_raw.read_csv(kb_file, encoding="latin1", nrows=0)
+                kb_file.seek(0)  # Rembobiner pour load_kb apres
+                cols = [c.strip() for c in _df_raw.columns]
+
                 has_ctx  = any("contexte" in c.lower() and "usage" in c.lower() for c in cols)
                 has_fonc = any("fonctionnalit" in c.lower() for c in cols)
-                has_etat = any("etat" in c.lower() or "\u00e9tat" in c.lower() for c in cols)
+                has_etat = any("etat" in c.lower() or "état" in c.lower() for c in cols)
                 has_comm = any("commentaire" in c.lower() for c in cols)
+
                 if not has_ctx or not has_fonc:
                     manquantes = []
                     if not has_ctx:  manquantes.append("Contexte d'usage")
-                    if not has_fonc: manquantes.append("Fonctionnalit\u00e9")
-                    st.error(f"\u26a0\ufe0f Colonnes obligatoires introuvables : {', '.join(manquantes)}")
+                    if not has_fonc: manquantes.append("Fonctionnalité")
+                    st.session_state.kb_df = None
+                    st.error(f"⚠️ Colonnes obligatoires introuvables dans le CSV : **{', '.join(manquantes)}**")
                     st.markdown(
                         "<div style='background:#fdf4ff;border:1px solid #d8b4fe;border-left:4px solid #9333ea;"
                         "border-radius:8px;padding:14px 18px;font-size:0.85rem;color:#3b0764;margin-top:8px;'>"
-                        "<b>\U0001f4cb Colonnes attendues dans draft.csv :</b><br><br>"
-                        "&nbsp;&nbsp;\u2705 <b>Contexte d\'usage</b> \u2014 obligatoire<br>"
-                        "&nbsp;&nbsp;\u2705 <b>Fonctionnalit\u00e9</b> \u2014 obligatoire<br>"
-                        "&nbsp;&nbsp;\u26aa <b>Etat</b> \u2014 optionnelle (cr\u00e9\u00e9e automatiquement si absente)<br>"
-                        "&nbsp;&nbsp;\u26aa <b>Commentaire</b> \u2014 optionnelle (cr\u00e9\u00e9e automatiquement si absente)<br><br>"
-                        "<b>V\u00e9rifiez les noms de colonnes dans votre fichier CSV.</b></div>",
+                        "<b>📋 Colonnes attendues dans draft.csv :</b><br><br>"
+                        "&nbsp;&nbsp;✅ <b>Contexte d'usage</b> — obligatoire<br>"
+                        "&nbsp;&nbsp;✅ <b>Fonctionnalité</b> — obligatoire<br>"
+                        "&nbsp;&nbsp;⚪ <b>Etat</b> — optionnelle (créée automatiquement si absente)<br>"
+                        "&nbsp;&nbsp;⚪ <b>Commentaire</b> — optionnelle (créée automatiquement si absente)<br><br>"
+                        f"<b>Colonnes détectées dans votre fichier : {', '.join(cols)}</b></div>",
                         unsafe_allow_html=True
                     )
-                    st.session_state.kb_df = None
                 else:
+                    st.session_state.kb_df = load_kb(kb_file)
                     if not has_etat:
                         st.session_state.kb_df["Etat"] = ""
-                        st.warning("Colonne Etat absente \u2014 cr\u00e9\u00e9e automatiquement.")
+                        st.warning("Colonne Etat absente — créée automatiquement.")
                     if not has_comm:
                         st.session_state.kb_df["Commentaire"] = ""
-                        st.warning("Colonne Commentaire absente \u2014 cr\u00e9\u00e9e automatiquement.")
-                    st.success(f"\u2705 {len(st.session_state.kb_df)} entr\u00e9es charg\u00e9es")
+                        st.warning("Colonne Commentaire absente — créée automatiquement.")
+                    st.success(f"✅ {len(st.session_state.kb_df)} entrées chargées")
                     with st.expander("Apercu KB"):
                         st.dataframe(st.session_state.kb_df.head(5), use_container_width=True)
             except Exception as e:
                 st.error(f"Erreur : {e}")
 
-    with col_r:
-        st.markdown('<div class="section-title">Fichier a traiter</div>', unsafe_allow_html=True)
-        xl_file = st.file_uploader(
-            "essaiNadaA.xlsx", type=["xlsx", "xls"], key="xl_upload",
-            label_visibility="collapsed",
-        )
         if xl_file:
             try:
                 st.session_state.excel_df = pd.read_excel(xl_file)
