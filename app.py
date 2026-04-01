@@ -212,28 +212,52 @@ def hybrid_search(question, bi_model, ce_model, embeddings, vectorizer, tfidf_ma
 def process_dataframe(excel_df, bi_model, ce_model, embeddings, vectorizer, tfidf_mat, kb_df, progress_cb):
     fonc_col = next((c for c in excel_df.columns if "fonctionnalit" in c.lower()), None)
     if not fonc_col:
-        st.error("Colonne 'Fonctionnalit\u00e9' introuvable dans le fichier Excel.")
+        st.error("Colonne 'Fonctionnalité' introuvable dans le fichier Excel.")
         return None
+
+    # 🔥 Création + typage propre des colonnes
     for col in ["Etat", "Commentaire", "Score_Hybride", "Score_CE", "Match_KB", "Mode"]:
         if col not in excel_df.columns:
-            excel_df[col] = ""
+            if col in ["Score_Hybride", "Score_CE"]:
+                excel_df[col] = np.nan
+            else:
+                excel_df[col] = ""
+
+    # 🔥 FIX PRINCIPAL : forcer les bons types
+    excel_df["Etat"] = excel_df["Etat"].astype(str)
+    excel_df["Commentaire"] = excel_df["Commentaire"].astype(str)
+    excel_df["Match_KB"] = excel_df["Match_KB"].astype(str)
+    excel_df["Mode"] = excel_df["Mode"].astype(str)
+
+    excel_df["Score_Hybride"] = pd.to_numeric(excel_df["Score_Hybride"], errors="coerce")
+    excel_df["Score_CE"] = pd.to_numeric(excel_df["Score_CE"], errors="coerce")
+
     total = len(excel_df)
+
     for i in excel_df.index:
         progress_cb((i + 1) / total)
         fonc = excel_df.at[i, fonc_col]
+
         if pd.isna(fonc) or str(fonc).strip() == "":
             excel_df.at[i, "Etat"]          = "non"
             excel_df.at[i, "Commentaire"]   = "Cellule vide"
             excel_df.at[i, "Score_Hybride"] = 0.0
             excel_df.at[i, "Mode"]          = "vide"
             continue
+
         r = hybrid_search(fonc, bi_model, ce_model, embeddings, vectorizer, tfidf_mat, kb_df)
+
         excel_df.at[i, "Etat"]          = r["etat"]
         excel_df.at[i, "Commentaire"]   = r["commentaire"]
         excel_df.at[i, "Score_Hybride"] = round(r["score"], 4)
-        excel_df.at[i, "Score_CE"]      = round(r["ce_score"], 4) if r["ce_score"] else None
-        excel_df.at[i, "Match_KB"]      = r.get("match", "")
-        excel_df.at[i, "Mode"]          = r["mode"]
+
+        excel_df.at[i, "Score_CE"] = (
+            round(r["ce_score"], 4) if r["ce_score"] is not None else np.nan
+        )
+
+        excel_df.at[i, "Match_KB"] = r.get("match", "")
+        excel_df.at[i, "Mode"]     = r["mode"]
+
     return excel_df
 
 
