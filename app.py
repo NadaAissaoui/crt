@@ -1,5 +1,5 @@
 """
-OGiRYS — Matching de Fonctionnalites
+OGiRYS — Matching de Fonctionnalites + PDF Q&A
 """
 
 import streamlit as st
@@ -122,6 +122,30 @@ button[data-testid="collapsedControl"] { display: none !important; }
     text-transform: uppercase; letter-spacing: 0.12em; margin-bottom: 12px;
 }
 .model-response-text { font-size: 0.95rem; color: #1a0e2e; line-height: 1.7; }
+
+/* PDF Chat */
+.chat-bubble-user {
+    background: linear-gradient(135deg, #482882, #6b3fa0);
+    color: #E2D8F3; border-radius: 12px 12px 2px 12px;
+    padding: 12px 16px; margin: 8px 0 8px 20%;
+    font-size: 0.9rem; line-height: 1.6;
+}
+.chat-bubble-bot {
+    background: #ffffff; border: 1px solid #E2D8F3;
+    border-left: 4px solid #E8005F;
+    color: #1a0e2e; border-radius: 12px 12px 12px 2px;
+    padding: 14px 18px; margin: 8px 20% 8px 0;
+    font-size: 0.9rem; line-height: 1.7;
+}
+.chat-bubble-label {
+    font-family: 'IBM Plex Mono', monospace; font-size: 0.65rem;
+    text-transform: uppercase; letter-spacing: 0.1em;
+    margin-bottom: 4px; opacity: 0.6;
+}
+.pdf-info-box {
+    background: #ffffff; border: 1px solid #E2D8F3; border-radius: 10px;
+    padding: 14px 18px; margin-bottom: 16px; display: flex; align-items: center; gap: 12px;
+}
 </style>
 """, unsafe_allow_html=True)
 
@@ -140,7 +164,7 @@ def load_models():
 
 
 # ─────────────────────────────────────────────────────────────
-#  CORE FUNCTIONS
+#  CORE FUNCTIONS — KB Matching
 # ─────────────────────────────────────────────────────────────
 def load_kb(file) -> pd.DataFrame:
     df = pd.read_csv(file, encoding="latin1")
@@ -215,7 +239,6 @@ def process_dataframe(excel_df, bi_model, ce_model, embeddings, vectorizer, tfid
         st.error("Colonne 'Fonctionnalité' introuvable dans le fichier Excel.")
         return None
 
-    # 🔥 Création + typage propre des colonnes
     for col in ["Etat", "Commentaire", "Score_Hybride", "Score_CE", "Match_KB", "Mode"]:
         if col not in excel_df.columns:
             if col in ["Score_Hybride", "Score_CE"]:
@@ -223,12 +246,10 @@ def process_dataframe(excel_df, bi_model, ce_model, embeddings, vectorizer, tfid
             else:
                 excel_df[col] = ""
 
-    # 🔥 FIX PRINCIPAL : forcer les bons types
     excel_df["Etat"] = excel_df["Etat"].astype(str)
     excel_df["Commentaire"] = excel_df["Commentaire"].astype(str)
     excel_df["Match_KB"] = excel_df["Match_KB"].astype(str)
     excel_df["Mode"] = excel_df["Mode"].astype(str)
-
     excel_df["Score_Hybride"] = pd.to_numeric(excel_df["Score_Hybride"], errors="coerce")
     excel_df["Score_CE"] = pd.to_numeric(excel_df["Score_CE"], errors="coerce")
 
@@ -250,11 +271,9 @@ def process_dataframe(excel_df, bi_model, ce_model, embeddings, vectorizer, tfid
         excel_df.at[i, "Etat"]          = r["etat"]
         excel_df.at[i, "Commentaire"]   = r["commentaire"]
         excel_df.at[i, "Score_Hybride"] = round(r["score"], 4)
-
         excel_df.at[i, "Score_CE"] = (
             round(r["ce_score"], 4) if r["ce_score"] is not None else np.nan
         )
-
         excel_df.at[i, "Match_KB"] = r.get("match", "")
         excel_df.at[i, "Mode"]     = r["mode"]
 
@@ -266,6 +285,68 @@ def df_to_excel_bytes(df: pd.DataFrame) -> bytes:
     with pd.ExcelWriter(buf, engine="openpyxl") as writer:
         df.to_excel(writer, index=False)
     return buf.getvalue()
+
+
+# ─────────────────────────────────────────────────────────────
+#  PDF Q&A FUNCTIONS
+# ─────────────────────────────────────────────────────────────
+def extract_pdf_text(pdf_bytes: bytes) -> str:
+    """Extract all text from PDF bytes using pdfplumber."""
+    import pdfplumber
+    text_parts = []
+    with pdfplumber.open(io.BytesIO(pdf_bytes)) as pdf:
+        for page_num, page in enumerate(pdf.pages, start=1):
+            page_text = page.extract_text()
+            if page_text and page_text.strip():
+                text_parts.append(f"[Page {page_num}]\n{page_text.strip()}")
+    return "\n\n".join(text_parts)
+
+
+def chunk_text(text: str, chunk_size: int = 800, overlap: int = 150) -> list[str]:
+    """Split text into overlapping chunks for better retrieval."""
+    words = text.split()
+    chunks = []
+    i = 0
+    while i < len(words):
+        chunk = " ".join(words[i:i + chunk_size])
+        chunks.append(chunk)
+        i += chunk_size - overlap
+    return chunks
+
+
+@st.cache_resource(show_spinner=False)
+def build_pdf_index(pdf_text: str):
+    """Build a semantic search index over PDF chunks using sentence-transformers."""
+    from sentence_transformers import SentenceTransformer
+    import torch
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    model = SentenceTransformer(BI_NAME, device=device)
+    chunks = chunk_text(pdf_text)
+    embeddings = model.encode(chunks, convert_to_numpy=True, normalize_embeddings=True, show_progress_bar=False)
+    return chunks, embeddings, model
+
+
+def answer_question_from_pdf(question: str, chunks: list, embeddings, bi_model, top_k: int = 5) -> tuple[str, list[str]]:
+    """
+    Find the most relevant chunks via semantic search,
+    then use a simple extractive approach to formulate an answer.
+    Returns (answer_text, [source_chunks]).
+    """
+    q_emb = bi_model.encode(question, convert_to_numpy=True, normalize_embeddings=True)
+    scores = embeddings @ q_emb
+    top_idx = scores.argsort()[-top_k:][::-1]
+
+    # Filter chunks with a minimum relevance score
+    min_score = 0.25
+    relevant = [(i, float(scores[i])) for i in top_idx if scores[i] >= min_score]
+
+    if not relevant:
+        return "Aucune information pertinente trouvée dans le PDF pour cette question.", []
+
+    # Build context from top chunks
+    context_chunks = [chunks[i] for i, _ in relevant[:3]]
+    context = "\n\n---\n\n".join(context_chunks)
+    return context, context_chunks
 
 
 # ─────────────────────────────────────────────────────────────
@@ -283,6 +364,22 @@ if "xl_loaded_name" not in st.session_state:
 if "goto_results" not in st.session_state:
     st.session_state.goto_results = False
 
+# PDF Q&A state
+if "pdf_text" not in st.session_state:
+    st.session_state.pdf_text = None
+if "pdf_chunks" not in st.session_state:
+    st.session_state.pdf_chunks = None
+if "pdf_embeddings" not in st.session_state:
+    st.session_state.pdf_embeddings = None
+if "pdf_bi_model" not in st.session_state:
+    st.session_state.pdf_bi_model = None
+if "pdf_loaded_name" not in st.session_state:
+    st.session_state.pdf_loaded_name = None
+if "pdf_chat_history" not in st.session_state:
+    st.session_state.pdf_chat_history = []  # list of {"role": "user"|"bot", "text": str}
+if "pdf_page_count" not in st.session_state:
+    st.session_state.pdf_page_count = 0
+
 
 # ─────────────────────────────────────────────────────────────
 #  HERO BANNER
@@ -296,9 +393,9 @@ st.markdown("""
 
 
 # ─────────────────────────────────────────────────────────────
-#  NAVIGATION (boutons = onglets controlables)
+#  NAVIGATION — 4 onglets
 # ─────────────────────────────────────────────────────────────
-n1, n2, n3 = st.columns(3)
+n1, n2, n3, n4 = st.columns(4)
 with n1:
     if st.button("📁  Upload & Traitement", key="nav0",
                  type="primary" if st.session_state.current_tab == 0 else "secondary",
@@ -306,7 +403,7 @@ with n1:
         st.session_state.current_tab = 0
         st.rerun()
 with n2:
-    if st.button("📊  R\u00e9sultats", key="nav1",
+    if st.button("📊  Résultats", key="nav1",
                  type="primary" if st.session_state.current_tab == 1 else "secondary",
                  use_container_width=True):
         st.session_state.current_tab = 1
@@ -317,6 +414,12 @@ with n3:
                  use_container_width=True):
         st.session_state.current_tab = 2
         st.rerun()
+with n4:
+    if st.button("📄  PDF Q&A", key="nav3",
+                 type="primary" if st.session_state.current_tab == 3 else "secondary",
+                 use_container_width=True):
+        st.session_state.current_tab = 3
+        st.rerun()
 
 st.markdown("<hr style='margin:0 0 24px 0;border:none;border-top:2px solid #E2D8F3;'>", unsafe_allow_html=True)
 
@@ -326,7 +429,6 @@ st.markdown("<hr style='margin:0 0 24px 0;border:none;border-top:2px solid #E2D8
 # ══════════════════════════════════════════════════════════════
 if st.session_state.current_tab == 0:
 
-    # Redirection automatique apres matching
     if st.session_state.get("goto_results", False):
         st.session_state.goto_results = False
         st.session_state.current_tab = 1
@@ -334,7 +436,6 @@ if st.session_state.current_tab == 0:
 
     col_l, col_r = st.columns(2, gap="large")
 
-    # ── KB (draft.csv) ────────────────────────────────────────
     with col_l:
         st.markdown('<div class="section-title">Base de connaissances (draft.csv)</div>', unsafe_allow_html=True)
         kb_file = st.file_uploader("draft.csv", type=["csv"], key="kb_upload", label_visibility="collapsed")
@@ -347,17 +448,17 @@ if st.session_state.current_tab == 0:
                 if not has_ctx or not has_fonc:
                     manquantes = []
                     if not has_ctx:  manquantes.append("Contexte d'usage")
-                    if not has_fonc: manquantes.append("Fonctionnalit\u00e9")
+                    if not has_fonc: manquantes.append("Fonctionnalité")
                     st.session_state.kb_df = None
                     st.session_state.kb_loaded_name = None
-                    st.error(f"\u26a0\ufe0f Colonnes obligatoires manquantes : **{', '.join(manquantes)}**")
+                    st.error(f"⚠️ Colonnes obligatoires manquantes : **{', '.join(manquantes)}**")
                     st.markdown(
-                        f"<div class='alert-box'><b>\U0001f4cb Colonnes attendues :</b><br><br>"
-                        f"&nbsp;&nbsp;\u2705 <b>Contexte d'usage</b> \u2014 obligatoire<br>"
-                        f"&nbsp;&nbsp;\u2705 <b>Fonctionnalit\u00e9</b> \u2014 obligatoire<br>"
-                        f"&nbsp;&nbsp;\u26aa <b>Etat</b> \u2014 optionnelle<br>"
-                        f"&nbsp;&nbsp;\u26aa <b>Commentaire</b> \u2014 optionnelle<br><br>"
-                        f"<b>D\u00e9tect\u00e9es : {', '.join(cols)}</b></div>",
+                        f"<div class='alert-box'><b>📋 Colonnes attendues :</b><br><br>"
+                        f"&nbsp;&nbsp;✅ <b>Contexte d'usage</b> — obligatoire<br>"
+                        f"&nbsp;&nbsp;✅ <b>Fonctionnalité</b> — obligatoire<br>"
+                        f"&nbsp;&nbsp;⚪ <b>Etat</b> — optionnelle<br>"
+                        f"&nbsp;&nbsp;⚪ <b>Commentaire</b> — optionnelle<br><br>"
+                        f"<b>Détectées : {', '.join(cols)}</b></div>",
                         unsafe_allow_html=True
                     )
                 else:
@@ -365,22 +466,20 @@ if st.session_state.current_tab == 0:
                     st.session_state.kb_loaded_name = kb_file.name
                     if not has_etat:
                         st.session_state.kb_df["Etat"] = ""
-                        st.warning("Colonne **Etat** absente \u2014 cr\u00e9\u00e9e automatiquement.")
+                        st.warning("Colonne **Etat** absente — créée automatiquement.")
                     if not has_comm:
                         st.session_state.kb_df["Commentaire"] = ""
-                        st.warning("Colonne **Commentaire** absente \u2014 cr\u00e9\u00e9e automatiquement.")
-                    st.success(f"\u2705 {len(st.session_state.kb_df)} entr\u00e9es charg\u00e9es")
-                    with st.expander("Aper\u00e7u KB"):
+                        st.warning("Colonne **Commentaire** absente — créée automatiquement.")
+                    st.success(f"✅ {len(st.session_state.kb_df)} entrées chargées")
+                    with st.expander("Aperçu KB"):
                         st.dataframe(st.session_state.kb_df.head(5), use_container_width=True)
             except Exception as e:
                 st.error(f"Erreur : {e}")
         elif st.session_state.kb_df is not None and kb_file:
-            st.success(f"\u2705 {len(st.session_state.kb_df)} entr\u00e9es charg\u00e9es ({kb_file.name})")
-       
+            st.success(f"✅ {len(st.session_state.kb_df)} entrées chargées ({kb_file.name})")
 
-    # ── Fichier Excel ─────────────────────────────────────────
     with col_r:
-        st.markdown('<div class="section-title">Fichier \u00e0 traiter (.xlsx)</div>', unsafe_allow_html=True)
+        st.markdown('<div class="section-title">Fichier à traiter (.xlsx)</div>', unsafe_allow_html=True)
         xl_file = st.file_uploader("fichier.xlsx", type=["xlsx", "xls"], key="xl_upload", label_visibility="collapsed")
         if xl_file and xl_file.name != st.session_state.xl_loaded_name:
             try:
@@ -389,48 +488,46 @@ if st.session_state.current_tab == 0:
                 if not has_ctx_xl or not has_fonc_xl:
                     manquantes_xl = []
                     if not has_ctx_xl:  manquantes_xl.append("Contexte d'usage")
-                    if not has_fonc_xl: manquantes_xl.append("Fonctionnalit\u00e9")
+                    if not has_fonc_xl: manquantes_xl.append("Fonctionnalité")
                     st.session_state.excel_df = None
                     st.session_state.xl_loaded_name = None
-                    st.error(f"\u26a0\ufe0f Colonnes obligatoires manquantes : **{', '.join(manquantes_xl)}**")
+                    st.error(f"⚠️ Colonnes obligatoires manquantes : **{', '.join(manquantes_xl)}**")
                     st.markdown(
-                        f"<div class='alert-box'><b>\U0001f4cb V\u00e9rifiez les noms de colonnes :</b><br><br>"
-                        f"&nbsp;&nbsp;\u2705 <b>Contexte d'usage</b> \u2014 obligatoire<br>"
-                        f"&nbsp;&nbsp;\u2705 <b>Fonctionnalit\u00e9</b> \u2014 obligatoire<br><br>"
-                        f"<b>D\u00e9tect\u00e9es : {', '.join(cols_xl)}</b></div>",
+                        f"<div class='alert-box'><b>📋 Vérifiez les noms de colonnes :</b><br><br>"
+                        f"&nbsp;&nbsp;✅ <b>Contexte d'usage</b> — obligatoire<br>"
+                        f"&nbsp;&nbsp;✅ <b>Fonctionnalité</b> — obligatoire<br><br>"
+                        f"<b>Détectées : {', '.join(cols_xl)}</b></div>",
                         unsafe_allow_html=True
                     )
                 else:
                     st.session_state.excel_df = _df_xl
                     st.session_state.xl_loaded_name = xl_file.name
-                    st.success(f"\u2705 {len(st.session_state.excel_df)} lignes d\u00e9tect\u00e9es")
-                    with st.expander("Aper\u00e7u Excel"):
+                    st.success(f"✅ {len(st.session_state.excel_df)} lignes détectées")
+                    with st.expander("Aperçu Excel"):
                         st.dataframe(st.session_state.excel_df.head(5), use_container_width=True)
             except Exception as e:
                 st.error(f"Erreur : {e}")
         elif st.session_state.excel_df is not None and xl_file:
-            st.success(f"\u2705 {len(st.session_state.excel_df)} lignes d\u00e9tect\u00e9es ({xl_file.name})")
+            st.success(f"✅ {len(st.session_state.excel_df)} lignes détectées ({xl_file.name})")
 
     st.divider()
 
-    # ── Chargement modeles + Indexation ──────────────────────
     st.markdown('<div class="section-title">Initialisation</div>', unsafe_allow_html=True)
     if st.session_state.kb_df is not None:
-        if st.button("Charger les mod\u00e8les & Indexer la KB", key="load_and_index_btn"):
-            with st.spinner("Chargement des mod\u00e8les et calcul des embeddings..."):
+        if st.button("Charger les modèles & Indexer la KB", key="load_and_index_btn"):
+            with st.spinner("Chargement des modèles et calcul des embeddings..."):
                 try:
                     bi, ce = load_models()
                     corpus, vec, tmat, emb = build_index(st.session_state.kb_df, bi)
                     st.session_state.vectorizer = vec
                     st.session_state.tfidf_mat  = tmat
                     st.session_state.embeddings = emb
-                    st.success(f"\u2705 Mod\u00e8les charg\u00e9s \u2014 index construit ({emb.shape[0]} entr\u00e9es)")
+                    st.success(f"✅ Modèles chargés — index construit ({emb.shape[0]} entrées)")
                 except Exception as e:
                     st.error(f"Erreur : {e}")
     else:
         st.info("Chargez d'abord la base de connaissances (draft.csv) ci-dessus.")
 
-    # ── Lancer le traitement ──────────────────────────────────
     st.divider()
     st.markdown('<div class="section-title">Traitement</div>', unsafe_allow_html=True)
 
@@ -448,7 +545,7 @@ if st.session_state.current_tab == 0:
         st.info(f"En attente : {' | '.join(missing)}")
 
     if ready:
-        if st.button("\U0001f680  Lancer le matching IA", key="run"):
+        if st.button("🚀  Lancer le matching IA", key="run"):
             progress_bar = st.progress(0, text="Initialisation...")
 
             def update_progress(pct):
@@ -469,10 +566,10 @@ if st.session_state.current_tab == 0:
                 if result is not None:
                     st.session_state.result_df = result
                     st.session_state.goto_results = True
-                    progress_bar.progress(1.0, text="Termin\u00e9 !")
+                    progress_bar.progress(1.0, text="Terminé !")
                     oui = (result["Etat"] == "oui").sum()
                     non = (result["Etat"] == "non").sum()
-                    st.success(f"\u2705 Matching termin\u00e9 ! {oui} pr\u00e9sentes / {non} absentes")
+                    st.success(f"✅ Matching terminé ! {oui} présentes / {non} absentes")
                     st.rerun()
             except Exception as e:
                 st.error(f"Erreur : {e}")
@@ -488,7 +585,7 @@ elif st.session_state.current_tab == 1:
         <div style="text-align:center;padding:60px 20px;color:#482882;">
             <div style="font-size:3rem;margin-bottom:16px;">📊</div>
             <div style="font-family:'IBM Plex Mono',monospace;font-size:1rem;">
-                Aucun r\u00e9sultat disponible<br>
+                Aucun résultat disponible<br>
                 <span style="font-size:0.8rem;opacity:.6;">
                 Lancez le traitement dans l'onglet Upload &amp; Traitement</span>
             </div>
@@ -500,7 +597,6 @@ elif st.session_state.current_tab == 1:
         oui   = int((result_df["Etat"] == "oui").sum())
         non   = int((result_df["Etat"] == "non").sum())
 
-        # ── Stats (3 cartes, sans score) ─────────────────────
         st.markdown(f"""
         <div class="stats-row">
             <div class="stat-card stat-total">
@@ -509,7 +605,7 @@ elif st.session_state.current_tab == 1:
             </div>
             <div class="stat-card stat-oui">
                 <div class="stat-number">{oui}</div>
-                <div class="stat-label">Pr\u00e9sentes</div>
+                <div class="stat-label">Présentes</div>
             </div>
             <div class="stat-card stat-non">
                 <div class="stat-number">{non}</div>
@@ -518,21 +614,18 @@ elif st.session_state.current_tab == 1:
         </div>
         """, unsafe_allow_html=True)
 
-        # ── Filtres ───────────────────────────────────────────
         st.markdown('<div class="section-title">Filtres</div>', unsafe_allow_html=True)
         f1, f2, f3 = st.columns([3, 2, 2], gap="small")
         fonc_col = next((c for c in result_df.columns if "fonctionnalit" in c.lower()), None)
 
         with f1:
-            search_q = st.text_input("Rechercher", placeholder="mot-cl\u00e9...", label_visibility="collapsed")
+            search_q = st.text_input("Rechercher", placeholder="mot-clé...", label_visibility="collapsed")
         with f2:
             etat_filter = st.selectbox("Etat", ["Tous", "oui", "non"], label_visibility="collapsed")
         with f3:
             sort_by = st.selectbox("Trier par", ["A-Z", "Z-A", "Etat"], label_visibility="collapsed")
 
-        # ── Filtrage ──────────────────────────────────────────
         view = result_df.copy()
-
         if search_q and fonc_col:
             view = view[view[fonc_col].str.lower().str.contains(search_q.lower(), na=False)]
         if etat_filter != "Tous":
@@ -543,9 +636,7 @@ elif st.session_state.current_tab == 1:
         if sc and sc in view.columns:
             view = view.sort_values(sc, ascending=asc_val)
 
-        st.caption(f"{len(view)} ligne(s) affich\u00e9e(s) sur {total}")
-
-        # ── Tableau — uniquement Fonctionnalité, Etat, Commentaire
+        st.caption(f"{len(view)} ligne(s) affichée(s) sur {total}")
         display_cols = [c for c in [fonc_col, "Etat", "Commentaire"] if c and c in view.columns]
 
         st.dataframe(
@@ -558,19 +649,18 @@ elif st.session_state.current_tab == 1:
             },
         )
 
-        # ── Download ──────────────────────────────────────────
         st.divider()
         dl1, dl2, _ = st.columns([2, 2, 3], gap="medium")
         with dl1:
             st.download_button(
-                label="\u2b07  T\u00e9l\u00e9charger Excel complet",
+                label="⬇  Télécharger Excel complet",
                 data=df_to_excel_bytes(result_df[display_cols]),
                 file_name="ogirys_resultats.xlsx",
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             )
         with dl2:
             st.download_button(
-                label="\u2b07  T\u00e9l\u00e9charger vue filtr\u00e9e",
+                label="⬇  Télécharger vue filtrée",
                 data=df_to_excel_bytes(view[display_cols]),
                 file_name="ogirys_resultats_filtres.xlsx",
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -582,7 +672,7 @@ elif st.session_state.current_tab == 1:
 # ══════════════════════════════════════════════════════════════
 elif st.session_state.current_tab == 2:
 
-    st.markdown('<div class="section-title">Tester une fonctionnalit\u00e9</div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-title">Tester une fonctionnalité</div>', unsafe_allow_html=True)
 
     ready_search = (
         st.session_state.embeddings is not None and
@@ -590,13 +680,13 @@ elif st.session_state.current_tab == 2:
     )
 
     if not ready_search:
-        st.info("Chargez les mod\u00e8les et indexez la KB dans l'onglet Upload & Traitement.")
+        st.info("Chargez les modèles et indexez la KB dans l'onglet Upload & Traitement.")
     else:
         query = st.text_input(
-            "Fonctionnalit\u00e9 \u00e0 rechercher",
+            "Fonctionnalité à rechercher",
             placeholder="ex: gestion des droits utilisateurs...",
         )
-        if st.button("\U0001f50d  Rechercher", key="manual_search") and query:
+        if st.button("🔍  Rechercher", key="manual_search") and query:
             with st.spinner("Recherche en cours..."):
                 bi, ce = load_models()
                 r = hybrid_search(
@@ -608,21 +698,179 @@ elif st.session_state.current_tab == 2:
                 )
 
             is_found    = r["etat"] == "oui"
-            label       = "Pr\u00e9sente dans OGiRYS." if is_found else "Absente de OGiRYS."
+            label       = "Présente dans OGiRYS." if is_found else "Absente de OGiRYS."
             commentaire = r["commentaire"] if r["commentaire"] else label
 
             reponse_parts = [label]
             if commentaire and commentaire not in (label, "Pas presente dans OGiRYS."):
                 reponse_parts.append(commentaire)
             elif not is_found:
-                reponse_parts.append("Aucune correspondance suffisante trouv\u00e9e dans la base de connaissances.")
+                reponse_parts.append("Aucune correspondance suffisante trouvée dans la base de connaissances.")
 
-            reponse_text = "\n".join(reponse_parts)
             reponse_html = "<br>".join(reponse_parts)
 
             st.markdown(f"""
             <div class="model-response">
-                <div class="model-response-title">La r\u00e9ponse du mod\u00e8le :</div>
+                <div class="model-response-title">La réponse du modèle :</div>
                 <div class="model-response-text">{reponse_html}</div>
             </div>
             """, unsafe_allow_html=True)
+
+
+# ══════════════════════════════════════════════════════════════
+#  ONGLET 4 — PDF Q&A
+# ══════════════════════════════════════════════════════════════
+elif st.session_state.current_tab == 3:
+
+    st.markdown('<div class="section-title">📄 Poser des questions sur un PDF</div>', unsafe_allow_html=True)
+
+    # ── Upload PDF ────────────────────────────────────────────
+    pdf_file = st.file_uploader(
+        "Uploader votre PDF",
+        type=["pdf"],
+        key="pdf_qa_upload",
+        label_visibility="collapsed",
+        help="Formats acceptés : PDF",
+    )
+
+    # Charger + indexer le PDF si nouveau fichier
+    if pdf_file is not None and pdf_file.name != st.session_state.pdf_loaded_name:
+        with st.spinner("Extraction du texte et indexation du PDF..."):
+            try:
+                pdf_bytes = pdf_file.read()
+
+                # Extraire le texte
+                import pdfplumber
+                pages_text = []
+                page_count = 0
+                with pdfplumber.open(io.BytesIO(pdf_bytes)) as pdf:
+                    page_count = len(pdf.pages)
+                    for page_num, page in enumerate(pdf.pages, start=1):
+                        pt = page.extract_text()
+                        if pt and pt.strip():
+                            pages_text.append(f"[Page {page_num}]\n{pt.strip()}")
+
+                full_text = "\n\n".join(pages_text)
+
+                if not full_text.strip():
+                    st.error("⚠️ Impossible d'extraire du texte de ce PDF (PDF scanné ou protégé).")
+                else:
+                    # Découper en chunks et encoder
+                    from sentence_transformers import SentenceTransformer
+                    import torch
+                    device = "cuda" if torch.cuda.is_available() else "cpu"
+                    bi_model = SentenceTransformer(BI_NAME, device=device)
+                    chunks = chunk_text(full_text, chunk_size=800, overlap=150)
+                    embs = bi_model.encode(
+                        chunks, convert_to_numpy=True,
+                        normalize_embeddings=True, batch_size=32,
+                        show_progress_bar=False
+                    )
+
+                    st.session_state.pdf_text        = full_text
+                    st.session_state.pdf_chunks      = chunks
+                    st.session_state.pdf_embeddings  = embs
+                    st.session_state.pdf_bi_model    = bi_model
+                    st.session_state.pdf_loaded_name = pdf_file.name
+                    st.session_state.pdf_page_count  = page_count
+                    st.session_state.pdf_chat_history = []  # reset chat on new PDF
+                    st.success(f"✅ PDF indexé — {page_count} pages / {len(chunks)} chunks")
+
+            except Exception as e:
+                st.error(f"Erreur lors du chargement du PDF : {e}")
+
+    # ── Afficher infos PDF chargé ─────────────────────────────
+    if st.session_state.pdf_loaded_name:
+        st.markdown(f"""
+        <div class="pdf-info-box">
+            <span style="font-size:1.8rem;">📄</span>
+            <div>
+                <div style="font-family:'IBM Plex Mono',monospace;font-size:0.8rem;color:#482882;font-weight:600;">
+                    {st.session_state.pdf_loaded_name}
+                </div>
+                <div style="font-size:0.75rem;color:#888;margin-top:2px;">
+                    {st.session_state.pdf_page_count} pages
+                    &nbsp;·&nbsp;
+                    {len(st.session_state.pdf_chunks)} chunks indexés
+                    &nbsp;·&nbsp;
+                    {len(st.session_state.pdf_chat_history) // 2} question(s) posée(s)
+                </div>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+    # ── Historique du chat ────────────────────────────────────
+    if st.session_state.pdf_chat_history:
+        st.markdown('<div class="section-title">Historique</div>', unsafe_allow_html=True)
+        for msg in st.session_state.pdf_chat_history:
+            if msg["role"] == "user":
+                st.markdown(f"""
+                <div class="chat-bubble-user">
+                    <div class="chat-bubble-label">Vous</div>
+                    {msg["text"]}
+                </div>
+                """, unsafe_allow_html=True)
+            else:
+                # Formater le texte de la réponse (remplacer les sauts de ligne)
+                formatted = msg["text"].replace("\n", "<br>")
+                st.markdown(f"""
+                <div class="chat-bubble-bot">
+                    <div class="chat-bubble-label">Réponse extraite du PDF</div>
+                    {formatted}
+                </div>
+                """, unsafe_allow_html=True)
+
+    # ── Zone de question ──────────────────────────────────────
+    if st.session_state.pdf_chunks:
+        st.markdown('<div class="section-title">Poser une question</div>', unsafe_allow_html=True)
+        qa_col1, qa_col2 = st.columns([5, 1], gap="small")
+
+        with qa_col1:
+            user_question = st.text_input(
+                "Votre question",
+                placeholder="Ex: Quelles sont les fonctionnalités principales décrites dans ce document ?",
+                label_visibility="collapsed",
+                key="pdf_question_input",
+            )
+        with qa_col2:
+            search_clicked = st.button("🔍 Chercher", key="pdf_search_btn")
+
+        if search_clicked and user_question and user_question.strip():
+            with st.spinner("Recherche dans le PDF..."):
+                try:
+                    answer, source_chunks = answer_question_from_pdf(
+                        user_question,
+                        st.session_state.pdf_chunks,
+                        st.session_state.pdf_embeddings,
+                        st.session_state.pdf_bi_model,
+                        top_k=5,
+                    )
+
+                    # Ajouter au chat history
+                    st.session_state.pdf_chat_history.append({"role": "user", "text": user_question})
+                    st.session_state.pdf_chat_history.append({"role": "bot", "text": answer})
+
+                    st.rerun()
+
+                except Exception as e:
+                    st.error(f"Erreur lors de la recherche : {e}")
+
+        # Bouton reset chat
+        if st.session_state.pdf_chat_history:
+            st.markdown("<br>", unsafe_allow_html=True)
+            if st.button("🗑️  Effacer l'historique", key="clear_chat", type="secondary"):
+                st.session_state.pdf_chat_history = []
+                st.rerun()
+
+    elif pdf_file is None and st.session_state.pdf_chunks is None:
+        # Aucun PDF chargé
+        st.markdown("""
+        <div style="text-align:center;padding:60px 20px;color:#482882;">
+            <div style="font-size:3rem;margin-bottom:16px;">📄</div>
+            <div style="font-family:'IBM Plex Mono',monospace;font-size:1rem;">
+                Uploadez un PDF ci-dessus pour commencer<br>
+                <span style="font-size:0.8rem;opacity:.6;">
+                Le texte sera extrait et indexé automatiquement</span>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
