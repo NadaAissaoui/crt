@@ -376,6 +376,79 @@ if st.session_state.current_tab == 0:
                 st.error(f"Erreur : {e}")
         elif st.session_state.kb_df is not None and kb_file:
             st.success(f"\u2705 {len(st.session_state.kb_df)} entr\u00e9es charg\u00e9es ({kb_file.name})")
+        elif st.session_state.current_tab == 3:
+
+    st.markdown('<div class="section-title">📄 Base PDF (FAQ)</div>', unsafe_allow_html=True)
+
+    pdf_file = st.file_uploader("Importer un PDF", type=["pdf"])
+
+    if pdf_file:
+
+        import pdfplumber
+        import re
+
+        rows = []
+
+        with pdfplumber.open(pdf_file) as pdf:
+            text = ""
+            for page in pdf.pages:
+                if page.extract_text():
+                    text += page.extract_text() + "\n"
+
+        lines = text.split("\n")
+
+        current_q = None
+        current_a = []
+
+        for line in lines:
+            line = line.strip()
+            if not line:
+                continue
+
+            # question détectée
+            if re.match(r"^\d+\.\d+", line):
+
+                if current_q:
+                    rows.append({
+                        "Question": current_q,
+                        "Réponse": " ".join(current_a)
+                    })
+
+                current_q = line
+                current_a = []
+
+            else:
+                current_a.append(line)
+
+        # dernière QA
+        if current_q:
+            rows.append({
+                "Question": current_q,
+                "Réponse": " ".join(current_a)
+            })
+
+        df_pdf = pd.DataFrame(rows)
+
+        st.session_state.pdf_kb = df_pdf
+
+        st.success(f"PDF chargé : {len(df_pdf)} Q/A extraites")
+
+        st.dataframe(df_pdf, use_container_width=True)
+
+    # 🔎 mini recherche dans PDF seul
+    st.markdown("### 🔍 Recherche dans le PDF")
+
+    if "pdf_kb" in st.session_state:
+
+        query = st.text_input("Rechercher une question")
+
+        if query:
+
+            res = st.session_state.pdf_kb[
+                st.session_state.pdf_kb["Question"].str.lower().str.contains(query.lower(), na=False)
+            ]
+
+            st.dataframe(res)
 
     # ── Fichier Excel ─────────────────────────────────────────
     with col_r:
