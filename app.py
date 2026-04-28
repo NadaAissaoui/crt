@@ -718,7 +718,7 @@ elif st.session_state.current_tab == 3:
     # ── Upload Excel Q&R ──────────────────────────────────────
     qr_file = st.file_uploader(
         "Uploader votre fichier Excel Q&R",
-        type=["xlsx", "xls","csv"],
+        type=["xlsx", "xls"],
         key="qr_upload",
         label_visibility="collapsed",
     )
@@ -771,20 +771,18 @@ elif st.session_state.current_tab == 3:
                 """, unsafe_allow_html=True)
             else:
                 reponse_html = msg["text"].replace("\n", "<br>")
-                matched_html = ""
-                if msg.get("matched_q"):
-                    matched_html = f"""
-                    <div style="font-size:0.72rem;color:#888;margin-top:10px;padding-top:8px;
-                                border-top:1px solid #E2D8F3;font-family:'IBM Plex Mono',monospace;">
-                        ↳ Question correspondante : <em>{msg['matched_q']}</em>
-                    </div>"""
-                st.markdown(f"""
-                <div class="chat-bubble-bot">
-                    <div class="chat-bubble-label">Réponse</div>
-                    {reponse_html}
-                    {matched_html}
-                </div>
-                """, unsafe_allow_html=True)
+                matched_html = (
+                    f'<div style="font-size:0.72rem;color:#888;margin-top:10px;padding-top:8px;'
+                    f'border-top:1px solid #E2D8F3;font-family:IBM Plex Mono,monospace;">'
+                    f'↳ Question correspondante : <em>{msg["matched_q"]}</em></div>'
+                    if msg.get("matched_q") else ""
+                )
+                st.markdown(
+                    f'<div class="chat-bubble-bot">'
+                    f'<div class="chat-bubble-label">Réponse</div>'
+                    f'{reponse_html}{matched_html}</div>',
+                    unsafe_allow_html=True,
+                )
 
     # ── Zone de recherche ─────────────────────────────────────
     if st.session_state.qr_df is not None:
