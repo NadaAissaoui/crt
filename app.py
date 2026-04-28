@@ -288,65 +288,60 @@ def df_to_excel_bytes(df: pd.DataFrame) -> bytes:
 
 
 # ─────────────────────────────────────────────────────────────
-#  PDF Q&A FUNCTIONS
+#  EXCEL Q&R FUNCTIONS
 # ─────────────────────────────────────────────────────────────
-def extract_pdf_text(pdf_bytes: bytes) -> str:
-    """Extract all text from PDF bytes using pdfplumber."""
-    import pdfplumber
-    text_parts = []
-    with pdfplumber.open(io.BytesIO(pdf_bytes)) as pdf:
-        for page_num, page in enumerate(pdf.pages, start=1):
-            page_text = page.extract_text()
-            if page_text and page_text.strip():
-                text_parts.append(f"[Page {page_num}]\n{page_text.strip()}")
-    return "\n\n".join(text_parts)
+def load_qr_excel(file) -> pd.DataFrame:
+    """Charge l'Excel Q&R et normalise les colonnes Question / Réponse."""
+    df = pd.read_excel(file)
+    df.columns = [c.strip() for c in df.columns]
+    # Chercher les colonnes question et réponse de façon flexible
+    q_col = next((c for c in df.columns if "question" in c.lower()), None)
+    r_col = next((c for c in df.columns if "r\u00e9ponse" in c.lower() or "reponse" in c.lower()), None)
+    if not q_col or not r_col:
+        return None, q_col, r_col
+    df = df[[q_col, r_col]].dropna(subset=[q_col])
+    df[q_col] = df[q_col].astype(str).str.strip()
+    df[r_col] = df[r_col].fillna("").astype(str).str.strip()
+    df = df.rename(columns={q_col: "Question", r_col: "Réponse"})
+    return df, q_col, r_col
 
 
-def chunk_text(text: str, chunk_size: int = 800, overlap: int = 150) -> list[str]:
-    """Split text into overlapping chunks for better retrieval."""
-    words = text.split()
-    chunks = []
-    i = 0
-    while i < len(words):
-        chunk = " ".join(words[i:i + chunk_size])
-        chunks.append(chunk)
-        i += chunk_size - overlap
-    return chunks
-
-
-@st.cache_resource(show_spinner=False)
-def build_pdf_index(pdf_text: str):
-    """Build a semantic search index over PDF chunks using sentence-transformers."""
+def build_qr_index(df: pd.DataFrame):
+    """Encode toutes les questions avec le bi-encoder."""
     from sentence_transformers import SentenceTransformer
     import torch
     device = "cuda" if torch.cuda.is_available() else "cpu"
     model = SentenceTransformer(BI_NAME, device=device)
-    chunks = chunk_text(pdf_text)
-    embeddings = model.encode(chunks, convert_to_numpy=True, normalize_embeddings=True, show_progress_bar=False)
-    return chunks, embeddings, model
+    questions = df["Question"].tolist()
+    embeddings = model.encode(
+        questions, convert_to_numpy=True,
+        normalize_embeddings=True, batch_size=32,
+        show_progress_bar=False
+    )
+    return embeddings, model
 
 
-def answer_question_from_pdf(question: str, chunks: list, embeddings, bi_model, top_k: int = 5) -> tuple[str, list[str]]:
-    """
-    Find the most relevant chunks via semantic search,
-    then use a simple extractive approach to formulate an answer.
-    Returns (answer_text, [source_chunks]).
-    """
-    q_emb = bi_model.encode(question, convert_to_numpy=True, normalize_embeddings=True)
+def search_qr(query: str, df: pd.DataFrame, embeddings, bi_model, threshold: float = 0.35) -> dict:
+    """Trouve la question la plus proche et retourne la réponse associée."""
+    q_emb = bi_model.encode(query.strip(), convert_to_numpy=True, normalize_embeddings=True)
     scores = embeddings @ q_emb
-    top_idx = scores.argsort()[-top_k:][::-1]
+    best_idx = int(scores.argmax())
+    best_score = float(scores[best_idx])
 
-    # Filter chunks with a minimum relevance score
-    min_score = 0.25
-    relevant = [(i, float(scores[i])) for i in top_idx if scores[i] >= min_score]
+    if best_score < threshold:
+        return {
+            "found": False,
+            "question": "",
+            "reponse": "Aucune question correspondante trouvée dans la base.",
+            "score": best_score,
+        }
 
-    if not relevant:
-        return "Aucune information pertinente trouvée dans le PDF pour cette question.", []
-
-    # Build context from top chunks
-    context_chunks = [chunks[i] for i, _ in relevant[:3]]
-    context = "\n\n---\n\n".join(context_chunks)
-    return context, context_chunks
+    return {
+        "found": True,
+        "question": df.iloc[best_idx]["Question"],
+        "reponse": df.iloc[best_idx]["Réponse"],
+        "score": best_score,
+    }
 
 
 # ─────────────────────────────────────────────────────────────
@@ -364,21 +359,17 @@ if "xl_loaded_name" not in st.session_state:
 if "goto_results" not in st.session_state:
     st.session_state.goto_results = False
 
-# PDF Q&A state
-if "pdf_text" not in st.session_state:
-    st.session_state.pdf_text = None
-if "pdf_chunks" not in st.session_state:
-    st.session_state.pdf_chunks = None
-if "pdf_embeddings" not in st.session_state:
-    st.session_state.pdf_embeddings = None
-if "pdf_bi_model" not in st.session_state:
-    st.session_state.pdf_bi_model = None
-if "pdf_loaded_name" not in st.session_state:
-    st.session_state.pdf_loaded_name = None
-if "pdf_chat_history" not in st.session_state:
-    st.session_state.pdf_chat_history = []  # list of {"role": "user"|"bot", "text": str}
-if "pdf_page_count" not in st.session_state:
-    st.session_state.pdf_page_count = 0
+# Excel Q&R state
+if "qr_df" not in st.session_state:
+    st.session_state.qr_df = None
+if "qr_embeddings" not in st.session_state:
+    st.session_state.qr_embeddings = None
+if "qr_bi_model" not in st.session_state:
+    st.session_state.qr_bi_model = None
+if "qr_loaded_name" not in st.session_state:
+    st.session_state.qr_loaded_name = None
+if "qr_chat_history" not in st.session_state:
+    st.session_state.qr_chat_history = []
 
 
 # ─────────────────────────────────────────────────────────────
@@ -415,7 +406,7 @@ with n3:
         st.session_state.current_tab = 2
         st.rerun()
 with n4:
-    if st.button("📄  PDF Q&A", key="nav3",
+    if st.button("💬  Q&R", key="nav3",
                  type="primary" if st.session_state.current_tab == 3 else "secondary",
                  use_container_width=True):
         st.session_state.current_tab = 3
@@ -718,91 +709,59 @@ elif st.session_state.current_tab == 2:
 
 
 # ══════════════════════════════════════════════════════════════
-#  ONGLET 4 — PDF Q&A
+#  ONGLET 4 — Q&R EXCEL
 # ══════════════════════════════════════════════════════════════
 elif st.session_state.current_tab == 3:
 
-    st.markdown('<div class="section-title">📄 Poser des questions sur un PDF</div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-title">💬 Base de Questions / Réponses</div>', unsafe_allow_html=True)
 
-    # ── Upload PDF ────────────────────────────────────────────
-    pdf_file = st.file_uploader(
-        "Uploader votre PDF",
-        type=["pdf"],
-        key="pdf_qa_upload",
+    # ── Upload Excel Q&R ──────────────────────────────────────
+    qr_file = st.file_uploader(
+        "Uploader votre fichier Excel Q&R",
+        type=["xlsx", "xls"],
+        key="qr_upload",
         label_visibility="collapsed",
-        help="Formats acceptés : PDF",
     )
 
-    # Charger + indexer le PDF si nouveau fichier
-    if pdf_file is not None and pdf_file.name != st.session_state.pdf_loaded_name:
-        with st.spinner("Extraction du texte et indexation du PDF..."):
+    if qr_file is not None and qr_file.name != st.session_state.qr_loaded_name:
+        with st.spinner("Chargement et indexation des questions..."):
             try:
-                pdf_bytes = pdf_file.read()
-
-                # Extraire le texte
-                import pdfplumber
-                pages_text = []
-                page_count = 0
-                with pdfplumber.open(io.BytesIO(pdf_bytes)) as pdf:
-                    page_count = len(pdf.pages)
-                    for page_num, page in enumerate(pdf.pages, start=1):
-                        pt = page.extract_text()
-                        if pt and pt.strip():
-                            pages_text.append(f"[Page {page_num}]\n{pt.strip()}")
-
-                full_text = "\n\n".join(pages_text)
-
-                if not full_text.strip():
-                    st.error("⚠️ Impossible d'extraire du texte de ce PDF (PDF scanné ou protégé).")
+                df_qr, q_col, r_col = load_qr_excel(qr_file)
+                if df_qr is None:
+                    st.error(f"⚠️ Colonnes 'Question' et/ou 'Réponse' introuvables. Colonnes détectées : {q_col}, {r_col}")
                 else:
-                    # Découper en chunks et encoder
-                    from sentence_transformers import SentenceTransformer
-                    import torch
-                    device = "cuda" if torch.cuda.is_available() else "cpu"
-                    bi_model = SentenceTransformer(BI_NAME, device=device)
-                    chunks = chunk_text(full_text, chunk_size=800, overlap=150)
-                    embs = bi_model.encode(
-                        chunks, convert_to_numpy=True,
-                        normalize_embeddings=True, batch_size=32,
-                        show_progress_bar=False
-                    )
-
-                    st.session_state.pdf_text        = full_text
-                    st.session_state.pdf_chunks      = chunks
-                    st.session_state.pdf_embeddings  = embs
-                    st.session_state.pdf_bi_model    = bi_model
-                    st.session_state.pdf_loaded_name = pdf_file.name
-                    st.session_state.pdf_page_count  = page_count
-                    st.session_state.pdf_chat_history = []  # reset chat on new PDF
-                    st.success(f"✅ PDF indexé — {page_count} pages / {len(chunks)} chunks")
-
+                    embs, bi_model = build_qr_index(df_qr)
+                    st.session_state.qr_df          = df_qr
+                    st.session_state.qr_embeddings  = embs
+                    st.session_state.qr_bi_model    = bi_model
+                    st.session_state.qr_loaded_name = qr_file.name
+                    st.session_state.qr_chat_history = []
+                    st.success(f"✅ {len(df_qr)} paires Q&R indexées")
             except Exception as e:
-                st.error(f"Erreur lors du chargement du PDF : {e}")
+                st.error(f"Erreur : {e}")
 
-    # ── Afficher infos PDF chargé ─────────────────────────────
-    if st.session_state.pdf_loaded_name:
+    # ── Infos fichier chargé ──────────────────────────────────
+    if st.session_state.qr_loaded_name:
         st.markdown(f"""
         <div class="pdf-info-box">
-            <span style="font-size:1.8rem;">📄</span>
+            <span style="font-size:1.8rem;">📋</span>
             <div>
                 <div style="font-family:'IBM Plex Mono',monospace;font-size:0.8rem;color:#482882;font-weight:600;">
-                    {st.session_state.pdf_loaded_name}
+                    {st.session_state.qr_loaded_name}
                 </div>
                 <div style="font-size:0.75rem;color:#888;margin-top:2px;">
-                    {st.session_state.pdf_page_count} pages
+                    {len(st.session_state.qr_df)} paires Q&amp;R indexées
                     &nbsp;·&nbsp;
-                    {len(st.session_state.pdf_chunks)} chunks indexés
-                    &nbsp;·&nbsp;
-                    {len(st.session_state.pdf_chat_history) // 2} question(s) posée(s)
+                    {len(st.session_state.qr_chat_history) // 2} recherche(s) effectuée(s)
                 </div>
             </div>
         </div>
         """, unsafe_allow_html=True)
 
     # ── Historique du chat ────────────────────────────────────
-    if st.session_state.pdf_chat_history:
+    if st.session_state.qr_chat_history:
         st.markdown('<div class="section-title">Historique</div>', unsafe_allow_html=True)
-        for msg in st.session_state.pdf_chat_history:
+        for msg in st.session_state.qr_chat_history:
             if msg["role"] == "user":
                 st.markdown(f"""
                 <div class="chat-bubble-user">
@@ -811,66 +770,70 @@ elif st.session_state.current_tab == 3:
                 </div>
                 """, unsafe_allow_html=True)
             else:
-                # Formater le texte de la réponse (remplacer les sauts de ligne)
-                formatted = msg["text"].replace("\n", "<br>")
+                reponse_html = msg["text"].replace("\n", "<br>")
+                matched_html = ""
+                if msg.get("matched_q"):
+                    matched_html = f"""
+                    <div style="font-size:0.72rem;color:#888;margin-top:10px;padding-top:8px;
+                                border-top:1px solid #E2D8F3;font-family:'IBM Plex Mono',monospace;">
+                        ↳ Question correspondante : <em>{msg['matched_q']}</em>
+                    </div>"""
                 st.markdown(f"""
                 <div class="chat-bubble-bot">
-                    <div class="chat-bubble-label">Réponse extraite du PDF</div>
-                    {formatted}
+                    <div class="chat-bubble-label">Réponse</div>
+                    {reponse_html}
+                    {matched_html}
                 </div>
                 """, unsafe_allow_html=True)
 
-    # ── Zone de question ──────────────────────────────────────
-    if st.session_state.pdf_chunks:
+    # ── Zone de recherche ─────────────────────────────────────
+    if st.session_state.qr_df is not None:
         st.markdown('<div class="section-title">Poser une question</div>', unsafe_allow_html=True)
         qa_col1, qa_col2 = st.columns([5, 1], gap="small")
 
         with qa_col1:
             user_question = st.text_input(
                 "Votre question",
-                placeholder="Ex: Quelles sont les fonctionnalités principales décrites dans ce document ?",
+                placeholder="Ex: Comment créer un utilisateur ?",
                 label_visibility="collapsed",
-                key="pdf_question_input",
+                key="qr_question_input",
             )
         with qa_col2:
-            search_clicked = st.button("🔍 Chercher", key="pdf_search_btn")
+            search_clicked = st.button("🔍 Chercher", key="qr_search_btn")
 
         if search_clicked and user_question and user_question.strip():
-            with st.spinner("Recherche dans le PDF..."):
+            with st.spinner("Recherche de la meilleure réponse..."):
                 try:
-                    answer, source_chunks = answer_question_from_pdf(
+                    result = search_qr(
                         user_question,
-                        st.session_state.pdf_chunks,
-                        st.session_state.pdf_embeddings,
-                        st.session_state.pdf_bi_model,
-                        top_k=5,
+                        st.session_state.qr_df,
+                        st.session_state.qr_embeddings,
+                        st.session_state.qr_bi_model,
                     )
-
-                    # Ajouter au chat history
-                    st.session_state.pdf_chat_history.append({"role": "user", "text": user_question})
-                    st.session_state.pdf_chat_history.append({"role": "bot", "text": answer})
-
+                    st.session_state.qr_chat_history.append({"role": "user", "text": user_question})
+                    st.session_state.qr_chat_history.append({
+                        "role": "bot",
+                        "text": result["reponse"],
+                        "matched_q": result["question"] if result["found"] else "",
+                    })
                     st.rerun()
-
                 except Exception as e:
-                    st.error(f"Erreur lors de la recherche : {e}")
+                    st.error(f"Erreur : {e}")
 
-        # Bouton reset chat
-        if st.session_state.pdf_chat_history:
+        if st.session_state.qr_chat_history:
             st.markdown("<br>", unsafe_allow_html=True)
-            if st.button("🗑️  Effacer l'historique", key="clear_chat", type="secondary"):
-                st.session_state.pdf_chat_history = []
+            if st.button("🗑️  Effacer l'historique", key="clear_qr_chat", type="secondary"):
+                st.session_state.qr_chat_history = []
                 st.rerun()
 
-    elif pdf_file is None and st.session_state.pdf_chunks is None:
-        # Aucun PDF chargé
+    elif qr_file is None and st.session_state.qr_df is None:
         st.markdown("""
         <div style="text-align:center;padding:60px 20px;color:#482882;">
-            <div style="font-size:3rem;margin-bottom:16px;">📄</div>
+            <div style="font-size:3rem;margin-bottom:16px;">💬</div>
             <div style="font-family:'IBM Plex Mono',monospace;font-size:1rem;">
-                Uploadez un PDF ci-dessus pour commencer<br>
+                Uploadez votre Excel Q&amp;R ci-dessus<br>
                 <span style="font-size:0.8rem;opacity:.6;">
-                Le texte sera extrait et indexé automatiquement</span>
+                Colonnes attendues : <b>Question</b> et <b>Réponse</b></span>
             </div>
         </div>
         """, unsafe_allow_html=True)
