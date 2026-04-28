@@ -718,7 +718,7 @@ elif st.session_state.current_tab == 3:
     # ── Upload Excel Q&R ──────────────────────────────────────
     qr_file = st.file_uploader(
         "Uploader votre fichier Excel Q&R",
-        type=["xlsx", "xls"],
+        type=["xlsx", "xls","csv"],
         key="qr_upload",
         label_visibility="collapsed",
     )
